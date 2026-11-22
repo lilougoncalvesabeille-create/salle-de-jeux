@@ -13,10 +13,27 @@ $swText = [IO.File]::ReadAllText($sw) -replace "const VERSION = '[^']*';", "cons
 [IO.File]::WriteAllText($sw, $swText, (New-Object Text.UTF8Encoding $false))
 
 git add -A
-git commit -m $Message --quiet
-if ($LASTEXITCODE -ne 0) { throw 'Le commit a échoué.' }
-git push origin main --quiet
-if ($LASTEXITCODE -ne 0) { throw "L'envoi sur GitHub a échoué." }
+git diff --cached --quiet
+if ($LASTEXITCODE -ne 0) {
+  git commit -m $Message --quiet
+  if ($LASTEXITCODE -ne 0) { throw 'Le commit a échoué.' }
+}
+
+# Authentification avec la clé GitHub de la variable d'environnement utilisateur,
+# passée à git par l'environnement (jamais écrite dans .git/config ni affichée).
+$token = $env:GITHUB_PERSONAL_ACCESS_TOKEN
+if (-not $token) { $token = [Environment]::GetEnvironmentVariable('GITHUB_PERSONAL_ACCESS_TOKEN', 'User') }
+if (-not $token) { throw 'Clé GitHub introuvable : définis GITHUB_PERSONAL_ACCESS_TOKEN.' }
+$basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$token"))
+$env:GIT_CONFIG_COUNT = '2'
+$env:GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader'; $env:GIT_CONFIG_VALUE_0 = "AUTHORIZATION: basic $basic"
+$env:GIT_CONFIG_KEY_1 = 'credential.helper'; $env:GIT_CONFIG_VALUE_1 = ''
+try {
+  git push -u origin main --quiet
+  if ($LASTEXITCODE -ne 0) { throw "L'envoi sur GitHub a échoué." }
+} finally {
+  Remove-Item Env:GIT_CONFIG_COUNT, Env:GIT_CONFIG_KEY_0, Env:GIT_CONFIG_VALUE_0, Env:GIT_CONFIG_KEY_1, Env:GIT_CONFIG_VALUE_1 -ErrorAction SilentlyContinue
+}
 
 $url = git remote get-url origin
 if ($url -match 'github\.com[:/]([^/]+)/([^/.]+)') {
