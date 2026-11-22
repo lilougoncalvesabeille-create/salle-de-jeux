@@ -344,18 +344,21 @@ const W = 480, TAU = Math.PI * 2;
 // pour que la partie remplisse tout l'écran, bord à bord, quel que soit le modèle.
 function targetH() {
   const vw = innerWidth, vh = innerHeight;
-  if (vw > 600 || vh < vw) return 720;
+  if (!(vw > 0 && vh > 0) || vw > 600 || vh < vw) return 720; // fenêtre pas encore dimensionnée : valeur de base
   return Math.round(Math.min(1200, Math.max(640, 480 * vh / vw)));
 }
 let H = targetH();
 function setArVars() { document.documentElement.style.setProperty('--arn', String(W / H)); document.documentElement.style.setProperty('--ar', W + ' / ' + H); }
 setArVars();
 function applyH(h) {
+  const dh = h - H;
   H = h; cv.height = H * DPR; setArVars();
   for (const k in nebCache) delete nebCache[k];
+  if (isFinite(dh) && typeof P !== 'undefined' && P) { P.y += dh; if (P.dr) for (const d of P.dr) d.y += dh; }
 }
 let fitT = 0;
-addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => { const h = targetH(); if (Math.abs(h - H) / H > .01) applyH(h); }, 120); });
+function fitNow() { const h = targetH(); if (!isFinite(H) || Math.abs(h - H) / H > .01) applyH(h); }
+addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(fitNow, 120); });
 const cv = $('game'), ctx = cv.getContext('2d');
 const DPR = Math.min(2, window.devicePixelRatio || 1);
 cv.width = W * DPR; cv.height = H * DPR;
@@ -1703,6 +1706,7 @@ const SCREENS = ['s-title', 's-worlds', 's-levels', 's-hangar', 's-shop', 's-end
 function showScreen(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
   const playing = id === null;
+  if (id === null) fitNow();
   if (window.SalleImmersive) SalleImmersive(id === null || id === 's-pause' || id === 's-levelup');
   $('sp-btn').classList.toggle('hidden', !playing); $('pause-btn').classList.toggle('hidden', !playing);
 }
