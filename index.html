@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});</script>
 <style>
   :root { --bg: #0f1419; --panel: #1a2129; --grid: #1f2730; --text: #e6edf3; --muted: #8b98a5; }
   * { box-sizing: border-box; }
@@ -51,6 +51,8 @@
   .card textarea { width: 100%; min-height: 80px; resize: vertical; background: var(--bg); color: var(--text); border: 1px solid #2a3440; border-radius: 10px; padding: 10px; font: 12px ui-monospace, monospace; }
   #save-msg { min-height: 1.2em; font-weight: 600; color: #4ade80; }
   #save-msg.err { color: #f87171; }
+  .offline { margin: -18px 0 0; font-size: 13px; font-weight: 600; padding: 5px 12px; border-radius: 999px; background: var(--grid); color: var(--muted); text-align: center; }
+  .offline.ok { color: #4ade80; } .offline.warn { color: #fbbf24; }
   @media (max-width: 600px) { h1 { font-size: 26px; letter-spacing: 2px; margin-top: 34px; } }
 </style>
 <link rel="stylesheet" href="mobile.css">
@@ -59,6 +61,7 @@
 <body>
   <h1>🎮 SALLE DE JEUX</h1>
   <p class="sub">Choisis un jeu pour commencer</p>
+  <p class="offline" id="offline" hidden>⏳ Vérification du mode hors connexion…</p>
   <div class="games">
     <a class="game" href="snake.html" style="--c:#4ade80">
       <div class="icon">🐍</div>
@@ -204,6 +207,30 @@
     $('save-paste').onclick = () => {
       try { load(fromCode($('save-code').value)); } catch (err) { msg("Ce code n'est pas valide.", true); }
     };
+  })();
+  </script>
+  <script>
+  // Mode hors connexion : en ouvrant l'écran de sélection, on vérifie que TOUS les jeux sont en cache
+  // (et on télécharge ceux qui manquent), pour ne pas avoir à ouvrir chaque jeu après une mise à jour.
+  (async function () {
+    if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
+    const el = document.getElementById('offline');
+    const show = (txt, cls) => { el.hidden = false; el.textContent = txt; el.className = 'offline' + (cls ? ' ' + cls : ''); };
+    show('⏳ Vérification du mode hors connexion…');
+    navigator.serviceWorker.addEventListener('message', e => {
+      const d = e.data; if (!d || d.type !== 'offline-progress') return;
+      if (d.done + d.failed < d.total) show(`⏳ Téléchargement pour le hors connexion : ${d.done}/${d.total}`);
+      else if (d.failed) show(navigator.onLine ? `⚠️ ${d.failed} fichier(s) non téléchargé(s) — rouvre l'écran avec internet` : '📴 Hors connexion', 'warn');
+      else show('✓ Tous les jeux sont disponibles hors connexion', 'ok');
+    });
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      if (navigator.onLine) { try { await reg.update(); } catch (e) {} }
+      const next = reg.installing || reg.waiting;
+      if (next) await new Promise(res => { const chk = () => { if (next.state === 'activated' || next.state === 'redundant') res(); }; next.addEventListener('statechange', chk); chk(); });
+      const cur = (await navigator.serviceWorker.getRegistration()).active;
+      if (cur) cur.postMessage({ type: 'ensure-offline' });
+    } catch (e) { show('⚠️ Mode hors connexion indisponible', 'warn'); }
   })();
   </script>
 </body>

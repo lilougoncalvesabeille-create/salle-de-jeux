@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
-<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).catch(() => {});</script>
 <script>try { if (localStorage.getItem("regles-vues:" + (location.pathname.split("/").pop() || "index.html"))) document.documentElement.classList.add("rules-seen"); } catch (e) {}</script>
 <style>
   :root { --bg: #0b0f1a; --panel: #151c2b; --grid: #1e2738; --text: #e6edf3; --muted: #8b98a5; --accent: #facc15; --green: #4ade80;
