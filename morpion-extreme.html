@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Morpion extrême</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>try { if (localStorage.getItem("regles-vues:" + (location.pathname.split("/").pop() || "index.html"))) document.documentElement.classList.add("rules-seen"); } catch (e) {}</script>
+<style>
+  :root { --bg: #0f1419; --panel: #1a2129; --grid: #1f2730; --text: #e6edf3; --muted: #8b98a5; --accent: #facc15; --green: #4ade80; --x: #60a5fa; --o: #f472b6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; color: var(--text); background: var(--grid); }
+  button:hover { background: #2a3440; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(960px, 100%); }
+  .topbar h1 { margin: 0; font-size: 22px; letter-spacing: 2px; text-align: center; }
+  .topbar a, .topbar button { font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; background: var(--grid); padding: 8px 12px; border-radius: 8px; white-space: nowrap; }
+  .main { display: flex; gap: 20px; align-items: flex-start; justify-content: center; flex-wrap: wrap; width: 100%; }
+  .board-col { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .status { font-size: 19px; font-weight: 700; min-height: 26px; text-align: center; }
+  .hint { font-size: 14px; color: var(--muted); min-height: 20px; text-align: center; }
+  .x { color: var(--x); } .o { color: var(--o); }
+
+  /* tailles fixes : les cases ne changent jamais de taille, quel que soit leur contenu */
+  .big { --s: min(580px, calc(100vw - 32px)); width: var(--s); height: var(--s); display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 2%;
+    background: #0a0e14; padding: 1.6%; border-radius: 16px; }
+  .sb { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr));
+    gap: 5%; padding: 5%; background: #161d26; border-radius: 10px; min-width: 0; min-height: 0; border: 3px solid transparent; }
+  .sb.play { border-color: var(--accent); background: #1d2530; }
+  .sb.target::after { content: "→ adversaire"; position: absolute; left: 50%; top: -2px; transform: translate(-50%, -50%); z-index: 2;
+    font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--tc); color: #0b0f14; white-space: nowrap; pointer-events: none; }
+  .sb.target { outline: 3px dashed var(--tc); outline-offset: 2px; }
+  .sb.winline .won { background: color-mix(in srgb, var(--wc) 30%, transparent); }
+  .cell { border-radius: 6px; padding: 0; background: #283445; font-size: calc(var(--s) / 9 * .62); font-weight: 900; line-height: 1;
+    display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; overflow: hidden; border: 0; }
+  .cell span { -webkit-text-stroke: 2px currentColor; display: block; }
+  .sb.play .cell:not(.taken) { cursor: pointer; }
+  .sb.play .cell:not(.taken):hover { background: #34445a; }
+  .cell.last { box-shadow: 0 0 0 2px #fff inset; }
+  .cell .ghost { opacity: .3; }
+  .won { position: absolute; inset: 0; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    background: rgba(15, 20, 25, .72); font-size: calc(var(--s) / 3 * .75); font-weight: 900; line-height: 1; pointer-events: none; }
+  .won[hidden] { display: none; }
+  .won.d { font-size: calc(var(--s) / 3 * .35); color: var(--muted); }
+
+  .panel { width: min(320px, 100%); display: flex; flex-direction: column; gap: 12px; }
+  .box { background: var(--panel); border-radius: 12px; padding: 14px; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 10px 0 6px; }
+  .label:first-child { margin-top: 0; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; }
+  .seg button { padding: 8px 4px; font-size: 13px; background: transparent; }
+  .seg button.on { background: var(--accent); color: #2b2200; font-weight: 700; }
+  .desc { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .new { width: 100%; margin-top: 12px; padding: 11px; font-weight: 700; background: var(--green); color: #062b14; }
+  .new:hover { background: #6ee7a0; }
+  .undo { width: 100%; margin-top: 8px; padding: 9px; }
+  .undo:disabled { opacity: .4; cursor: default; }
+  .scores { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 6px; }
+  .scores div { background: var(--bg); border-radius: 10px; padding: 8px 4px; }
+  .scores b { display: block; font-size: 26px; }
+  .scores span { font-size: 12px; color: var(--muted); }
+  .scores .sx b { color: var(--x); } .scores .so b { color: var(--o); }
+  .mini-count { display: flex; justify-content: space-between; font-size: 14px; margin-top: 10px; color: var(--muted); }
+
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal.hidden { display: none; }
+  .card { background: var(--panel); width: min(620px, 100%); max-height: 90vh; overflow: auto; border-radius: 14px; padding: 22px 24px; line-height: 1.5; }
+  .card h2 { margin: 0 0 6px; }
+  .card h3 { margin: 16px 0 4px; font-size: 15px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+  .card p, .card ul { margin: 4px 0; color: #c9d4de; font-size: 15px; }
+  .card ul { padding-left: 20px; }
+  .card .ok { display: block; margin: 18px auto 0; padding: 10px 24px; font-weight: 700; background: var(--green); color: #062b14; }
+  .end-card { --kc: var(--accent); position: relative; width: min(520px, 100%); text-align: center; padding: 40px 28px 30px;
+    background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--kc) 22%, var(--panel)) 0%, var(--panel) 70%);
+    border: 3px solid var(--kc); border-radius: 22px; box-shadow: 0 0 60px color-mix(in srgb, var(--kc) 45%, transparent); animation: pop .5s cubic-bezier(.2,1.6,.4,1); }
+  .end-card.lose { --kc: #f87171; } .end-card.draw { --kc: #93c5fd; } .end-card.px { --kc: var(--x); } .end-card.po { --kc: var(--o); }
+  .end-emoji { font-size: 100px; line-height: 1; animation: bounce 1.6s ease-in-out infinite; }
+  .end-title { font-size: clamp(40px, 9vw, 66px); font-weight: 900; color: var(--kc); margin: 14px 0 6px; line-height: 1.05; }
+  .end-sub { font-size: 20px; }
+  .end-stats { font-size: 15px; color: var(--muted); margin-top: 8px; }
+  .end-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
+  .end-actions button, .end-actions a { font-size: 16px; font-weight: 700; padding: 12px 20px; border-radius: 10px; text-decoration: none; color: var(--text); background: var(--grid); }
+  .end-actions .primary { background: var(--kc); color: #111; }
+  #end { background: rgba(0,0,0,.78); backdrop-filter: blur(3px); }
+  #confetti { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+</style>
+<link rel="stylesheet" href="mobile.css">
+<script src="common.js" defer></script>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Jeux</a>
+    <h1>🔥 MORPION EXTRÊME</h1>
+    <button id="rules-btn">📖 Règles</button>
+  </div>
+
+  <div class="main">
+    <div class="board-col">
+      <div class="status" id="status"></div>
+      <div class="big" id="big"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+    <aside class="panel">
+      <div class="box">
+        <div class="label">Score</div>
+        <div class="scores">
+          <div class="sx"><b id="sc-x">0</b><span id="name-x"></span></div>
+          <div><b id="sc-d">0</b><span>Nuls</span></div>
+          <div class="so"><b id="sc-o">0</b><span id="name-o"></span></div>
+        </div>
+        <div class="mini-count"><span>Petits carrés gagnés :</span><span><b class="x" id="cnt-x">0</b> – <b class="o" id="cnt-o">0</b></span></div>
+      </div>
+      <div class="box">
+        <div class="label">Mode</div>
+        <div class="seg" id="seg-mode"><button data-v="ai">🤖 Contre l'ordi</button><button data-v="pvp">👥 À deux</button></div>
+        <div id="lvl-box">
+          <div class="label">Niveau de l'ordinateur</div>
+          <div class="seg" id="seg-level"><button data-v="1">Facile</button><button data-v="2">Moyen</button><button data-v="3">Difficile</button></div>
+          <div class="desc" id="lvl-desc"></div>
+        </div>
+        <button class="new" id="new">Nouvelle partie</button>
+        <button class="undo" id="undo">↶ Annuler le coup</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="modal hidden" id="end">
+    <div class="end-card" id="end-card">
+      <div class="end-emoji" id="end-emoji"></div>
+      <div class="end-title" id="end-title"></div>
+      <div class="end-sub" id="end-sub"></div>
+      <div class="end-stats" id="end-stats"></div>
+      <div class="end-actions">
+        <button class="primary" id="end-again">↻ Rejouer</button>
+        <button id="end-close">👁 Voir le plateau</button>
+        <a href="index.html">☰ Menu</a>
+      </div>
+    </div>
+  </div>
+  <canvas id="confetti"></canvas>
+
+  <div class="modal" id="rules">
+    <div class="card">
+      <h2>🔥 Morpion extrême — Règles</h2>
+      <p>Aussi appelé « Ultimate Tic-Tac-Toe » : un morpion géant fait de 9 petits morpions.</p>
+      <h3>But du jeu</h3>
+      <p>Gagner <b>3 petits carrés alignés</b> (en ligne, en colonne ou en diagonale) sur le grand plateau.</p>
+      <h3>Le plateau</h3>
+      <ul>
+        <li>Le plateau fait 9 × 9 cases, divisé en 9 petits carrés de 3 × 3.</li>
+        <li>Pour gagner un petit carré, il faut y aligner 3 de ses symboles, comme au morpion classique. Le carré prend alors ta couleur sur le grand plateau.</li>
+      </ul>
+      <h3>La règle d'or : on t'envoie où tu dois jouer</h3>
+      <ul>
+        <li>La case où tu joues dans un petit carré <b>décide du petit carré où ton adversaire devra jouer</b>. Exemple : si tu joues dans la case en haut à droite d'un petit carré, l'adversaire doit jouer dans le petit carré en haut à droite du grand plateau.</li>
+        <li>❌ commence et peut jouer n'importe où au premier coup.</li>
+        <li>Si tu es envoyé dans un petit carré <b>déjà gagné ou plein</b>, tu peux jouer dans <b>n'importe quel autre carré</b> encore ouvert.</li>
+        <li>Plus aucun coup n'est possible dans un petit carré gagné ou plein.</li>
+      </ul>
+      <h3>Fin de partie</h3>
+      <ul>
+        <li>Le premier qui aligne 3 petits carrés gagne.</li>
+        <li>Si tous les petits carrés sont gagnés ou pleins sans alignement, la partie est nulle. Un carré plein sans gagnant ne compte pour personne.</li>
+      </ul>
+      <h3>Aide à l'écran</h3>
+      <ul>
+        <li>Le ou les carrés où tu peux jouer sont entourés en <b style="color:var(--accent)">jaune</b>.</li>
+        <li><b>Aperçu</b> : quand tu survoles une case, le carré où ton adversaire sera envoyé est entouré de pointillés à sa couleur avec l'étiquette « → adversaire ». S'il pourra jouer partout, c'est écrit sous le plateau.</li>
+        <li>Le dernier coup joué est encadré de blanc. ↶ annule le dernier coup.</li>
+      </ul>
+      <h3>Modes et niveaux</h3>
+      <ul>
+        <li><b>À deux</b> : sur le même écran, chacun son tour. Les symboles s'échangent à chaque partie.</li>
+        <li><b>Facile</b> : l'ordinateur joue presque au hasard, mais gagne un petit carré quand il le peut.</li>
+        <li><b>Moyen</b> : il simule des milliers de fins de partie avant de jouer.</li>
+        <li><b>Difficile</b> : il en simule beaucoup plus (environ 2 secondes de réflexion).</li>
+      </ul>
+      <h3>Bonus</h3>
+      <p>Pas de bonus : la stratégie pure ! 🧠</p>
+      <button class="ok" id="rules-ok">C'est parti !</button>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const POS = ['en haut à gauche', 'en haut au milieu', 'en haut à droite', 'au milieu à gauche', 'au centre', 'au milieu à droite', 'en bas à gauche', 'en bas au milieu', 'en bas à droite'];
+const SYM = { 1: '✕', 2: '◯' }, CLS = { 1: 'x', 2: 'o' };
+const LEVELS = { 1: 'Presque au hasard, mais prend les petits carrés.', 2: 'Simule des milliers de parties (≈ 0,5 s).', 3: 'Simule beaucoup plus de parties (≈ 2 s).' };
+const settings = { mode: 'ai', level: 2 };
+let S, history = [], human = 1, games = 0, thinking = false, gameId = 0, scores = { 1: 0, 2: 0, D: 0 }, hover = -1, popIdx = -1;
+
+// ---------- règles ----------
+// cells[b*9+i] : case i du petit carré b ; 0 vide, 1 = ✕, 2 = ◯ ; small[b] : 0 ouvert, 1/2 gagné, 3 plein sans gagnant
+const newState = () => ({ cells: Array(81).fill(0), small: Array(9).fill(0), active: -1, turn: 1, over: 0, last: -1, line: null });
+const clone = s => ({ cells: s.cells.slice(), small: s.small.slice(), active: s.active, turn: s.turn, over: s.over, last: s.last, line: s.line });
+
+function line3(arr, off, p) {
+  for (const l of LINES) if (arr[off + l[0]] === p && arr[off + l[1]] === p && arr[off + l[2]] === p) return l;
+  return null;
+}
+function legal(s) {
+  const res = [];
+  if (s.over) return res;
+  for (let b = 0; b < 9; b++) {
+    if (s.small[b] || (s.active >= 0 && b !== s.active)) continue;
+    for (let i = 0; i < 9; i++) if (!s.cells[b * 9 + i]) res.push(b * 9 + i);
+  }
+  return res;
+}
+function apply(s, m) {
+  const b = Math.floor(m / 9), i = m % 9, p = s.turn;
+  s.cells[m] = p; s.last = m;
+  if (line3(s.cells, b * 9, p)) s.small[b] = p;
+  else { let full = true; for (let k = 0; k < 9; k++) if (!s.cells[b * 9 + k]) { full = false; break; } if (full) s.small[b] = 3; }
+  const big = s.small[b] === p ? line3(s.small, 0, p) : null;
+  if (big) { s.over = p; s.line = big; }
+  else if (s.small.every(Boolean)) s.over = 3;
+  s.active = s.small[i] ? -1 : i;
+  s.turn = 3 - p;
+}
+
+// ---------- ordinateur (Monte-Carlo) ----------
+function mcts(root, ms) {
+  const end = performance.now() + ms;
+  const R = { m: -1, parent: null, kids: [], untried: legal(root), n: 0, w: 0, mover: 3 - root.turn };
+  while (performance.now() < end) {
+    for (let k = 0; k < 40; k++) {
+      let node = R; const s = clone(root);
+      while (!node.untried.length && node.kids.length) {
+        const ln = Math.log(node.n); let best = null, bv = -1;
+        for (const c of node.kids) { const v = c.w / c.n + 1.1 * Math.sqrt(ln / c.n); if (v > bv) { bv = v; best = c; } }
+        node = best; apply(s, node.m);
+      }
+      if (node.untried.length) {
+        const j = Math.floor(Math.random() * node.untried.length), m = node.untried[j];
+        node.untried[j] = node.untried[node.untried.length - 1]; node.untried.pop();
+        apply(s, m);
+        const child = { m, parent: node, kids: [], untried: legal(s), n: 0, w: 0, mover: 3 - s.turn };
+        node.kids.push(child); node = child;
+      }
+      while (!s.over) { const L = legal(s); apply(s, L[Math.floor(Math.random() * L.length)]); }
+      for (let n = node; n; n = n.parent) { n.n++; if (s.over === n.mover) n.w++; else if (s.over === 3) n.w += .5; }
+    }
+  }
+  let best = R.kids[0];
+  for (const c of R.kids) if (c.n > best.n) best = c;
+  return best.m;
+}
+
+function aiMove() {
+  const moves = legal(S);
+  if (settings.level === 1) {
+    const winSmall = moves.filter(m => { const s = clone(S); apply(s, m); return s.small[Math.floor(m / 9)] === S.turn; });
+    const pool = winSmall.length ? winSmall : moves;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+  return mcts(S, settings.level === 2 ? 500 : 2000);
+}
+
+// ---------- partie ----------
+const isAiTurn = () => settings.mode === 'ai' && S.turn !== human;
+
+function play(m) {
+  history.push(clone(S));
+  apply(S, m);
+  popIdx = m; hover = -1;
+  if (S.over) { scores[S.over === 3 ? 'D' : S.over]++; render(); const id = gameId; setTimeout(() => { if (id === gameId) showEnd(); }, 900); return; }
+  render(); maybeAI();
+}
+function maybeAI() {
+  if (S.over || !isAiTurn()) return;
+  thinking = true; render();
+  const id = gameId;
+  setTimeout(() => { if (id !== gameId) return; const m = aiMove(); thinking = false; play(m); }, 350);
+}
+function undo() {
+  if (thinking || !history.length || S.over) return;
+  let n = settings.mode === 'ai' ? (S.turn === human ? 2 : 1) : 1;
+  n = Math.min(n, history.length);
+  for (let i = 0; i < n; i++) S = history.pop();
+  popIdx = -1; render(); maybeAI();
+}
+function newGame(swap = true) {
+  gameId++; hideEnd();
+  if (swap && games > 0) human = 3 - human;
+  games++;
+  S = newState(); history = []; thinking = false; popIdx = -1; hover = -1;
+  render(); maybeAI();
+}
+
+// ---------- affichage ----------
+const sbs = [], cells = [];
+for (let b = 0; b < 9; b++) {
+  const sb = document.createElement('div'); sb.className = 'sb';
+  for (let i = 0; i < 9; i++) {
+    const m = b * 9 + i, c = document.createElement('button');
+    c.className = 'cell';
+    c.addEventListener('click', () => { if (!thinking && !isAiTurn() && legal(S).includes(m)) play(m); });
+    c.addEventListener('mouseenter', () => { hover = m; render(); });
+    c.addEventListener('mouseleave', () => { if (hover === m) { hover = -1; render(); } });
+    sb.appendChild(c); cells[m] = c;
+  }
+  const won = document.createElement('div'); won.className = 'won'; won.hidden = true; sb.appendChild(won);
+  sb._won = won;
+  $('big').appendChild(sb); sbs.push(sb);
+}
+
+const who = p => settings.mode === 'pvp' ? `Joueur ${SYM[p]}` : p === human ? 'Toi' : 'Ordi';
+
+function render() {
+  const canPlay = !S.over && !thinking && !isAiTurn();
+  const moves = legal(S), playable = new Set(moves.map(m => Math.floor(m / 9)));
+  // aperçu : où l'adversaire sera envoyé
+  let target = null;
+  if (canPlay && hover >= 0 && moves.includes(hover)) { const s2 = clone(S); apply(s2, hover); target = s2.over ? null : s2.active; }
+  const opp = 3 - S.turn;
+  sbs.forEach((sb, b) => {
+    const cls = ['sb'];
+    if (!S.over && playable.has(b)) cls.push('play');
+    if (target !== null && target === b) cls.push('target');
+    if (S.line && S.line.includes(b)) cls.push('winline');
+    sb.className = cls.join(' ');
+    sb.style.setProperty('--tc', `var(--${CLS[opp]})`);
+    sb.style.setProperty('--wc', `var(--${CLS[S.over] || 'x'})`);
+    const w = S.small[b];
+    sb._won.hidden = !w;
+    if (w) { sb._won.className = 'won ' + (w === 3 ? 'd' : CLS[w]); sb._won.textContent = w === 3 ? 'nul' : SYM[w]; }
+    for (let i = 0; i < 9; i++) {
+      const m = b * 9 + i, v = S.cells[m], c = cells[m];
+      let html = v ? `<span class="${CLS[v]}">${SYM[v]}</span>` : (canPlay && m === hover && moves.includes(m) ? `<span class="ghost ${CLS[S.turn]}">${SYM[S.turn]}</span>` : '');
+      const cc = 'cell' + (v ? ' taken' : '') + (m === S.last ? ' last' : '');
+      if (c._h !== html) { c.innerHTML = html; c._h = html; }
+      if (c.className !== cc) c.className = cc;
+    }
+  });
+
+  const sym = p => `<span class="${CLS[p]}">${SYM[p]}</span>`;
+  $('status').innerHTML = S.over
+    ? (S.over === 3 ? '🤝 Partie nulle' : `${sym(S.over)} ${who(S.over)} ${settings.mode === 'ai' && S.over === human ? 'as gagné !' : 'gagne !'}`)
+    : thinking ? `${sym(S.turn)} L'ordi réfléchit…`
+    : `${sym(S.turn)} ${settings.mode === 'ai' ? 'À toi de jouer' : 'Au tour du ' + who(S.turn)}`;
+  let hint = '';
+  if (!S.over) {
+    if (target !== null) hint = target === -1 ? `→ Après ce coup, ${who(opp)} pourra jouer partout !` : `→ Après ce coup, ${who(opp)} devra jouer dans le carré ${POS[target]}.`;
+    else if (!thinking) hint = S.active === -1 ? 'Tu peux jouer dans n\'importe quel carré ouvert.' : `Joue dans le carré ${POS[S.active]} (entouré en jaune).`;
+    if (settings.mode === 'ai' && !canPlay) hint = '';
+  }
+  $('hint').textContent = hint;
+  $('sc-x').textContent = scores[1]; $('sc-o').textContent = scores[2]; $('sc-d').textContent = scores.D;
+  $('name-x').textContent = '✕ ' + who(1); $('name-o').textContent = '◯ ' + who(2);
+  $('cnt-x').textContent = S.small.filter(v => v === 1).length; $('cnt-o').textContent = S.small.filter(v => v === 2).length;
+  for (const [id, key] of [['seg-mode', 'mode'], ['seg-level', 'level']])
+    $(id).querySelectorAll('button').forEach(x => x.classList.toggle('on', String(settings[key]) === x.dataset.v));
+  $('lvl-box').style.display = settings.mode === 'ai' ? '' : 'none';
+  $('lvl-desc').textContent = LEVELS[settings.level];
+  $('undo').disabled = thinking || !history.length || !!S.over;
+}
+
+// ---------- fin ----------
+function showEnd() {
+  const ai = settings.mode === 'ai', p = S.over;
+  let kind, emoji, title;
+  if (p === 3) { kind = 'draw'; emoji = '🤝'; title = 'Partie nulle'; }
+  else if (ai) { kind = p === human ? 'win' : 'lose'; emoji = p === human ? '🏆' : '🤖'; title = p === human ? 'Victoire !' : 'Défaite…'; }
+  else { kind = 'p' + CLS[p]; emoji = '🏆'; title = `Victoire des ${SYM[p]} !`; }
+  const cx = S.small.filter(v => v === 1).length, co = S.small.filter(v => v === 2).length;
+  $('end-card').className = 'end-card ' + kind;
+  $('end-emoji').textContent = emoji; $('end-title').textContent = title;
+  $('end-sub').textContent = p === 3 ? 'Plus aucun carré à gagner et pas d\'alignement.' : '3 petits carrés alignés !';
+  $('end-stats').textContent = `Petits carrés : ✕ ${cx} – ◯ ${co} · ${history.length} coups · Score ✕ ${scores[1]} – ◯ ${scores[2]} (${scores.D} nul${scores.D > 1 ? 's' : ''})`;
+  $('end').classList.remove('hidden');
+  if (kind !== 'lose' && kind !== 'draw') confetti();
+}
+function hideEnd() { $('end').classList.add('hidden'); stopConfetti(); }
+
+let confettiRAF = null;
+function confetti() {
+  const c = $('confetti'), cx = c.getContext('2d'); c.width = innerWidth; c.height = innerHeight;
+  const colors = ['#facc15', '#4ade80', '#60a5fa', '#f472b6', '#fb923c', '#c084fc'];
+  const parts = Array.from({ length: 180 }, () => ({ x: Math.random() * c.width, y: -20 - Math.random() * c.height * .6, vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 3, r: Math.random() * 6, vr: (Math.random() - .5) * .3, s: 7 + Math.random() * 7, c: colors[Math.floor(Math.random() * 6)] }));
+  const t0 = performance.now(); cancelAnimationFrame(confettiRAF);
+  const step = t => {
+    cx.clearRect(0, 0, c.width, c.height);
+    for (const p of parts) { p.x += p.vx; p.y += p.vy; p.vy += .03; p.r += p.vr; cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c; cx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); cx.restore(); }
+    if (t - t0 < 5000) confettiRAF = requestAnimationFrame(step); else cx.clearRect(0, 0, c.width, c.height);
+  };
+  confettiRAF = requestAnimationFrame(step);
+}
+function stopConfetti() { cancelAnimationFrame(confettiRAF); const c = $('confetti'); c.getContext('2d').clearRect(0, 0, c.width, c.height); }
+
+// ---------- contrôles ----------
+for (const [id, key, num] of [['seg-mode', 'mode', false], ['seg-level', 'level', true]]) {
+  $(id).addEventListener('click', e => {
+    const x = e.target.closest('button'); if (!x || thinking) return;
+    const v = num ? +x.dataset.v : x.dataset.v;
+    if (settings[key] === v) return;
+    settings[key] = v;
+    if (key === 'mode') { scores = { 1: 0, 2: 0, D: 0 }; games = 0; human = 1; newGame(false); }
+    else if (!history.length) newGame(false); else render();
+  });
+}
+$('new').onclick = () => newGame();
+$('undo').onclick = undo;
+$('end-again').onclick = () => newGame();
+$('end-close').onclick = hideEnd;
+$('rules-ok').onclick = () => $('rules').classList.add('hidden');
+$('rules-btn').onclick = () => $('rules').classList.remove('hidden');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('rules').classList.add('hidden'); hideEnd(); } });
+
+newGame(false);
+</script>
+</body>
+</html>

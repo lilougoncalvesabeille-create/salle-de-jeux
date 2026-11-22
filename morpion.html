@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Morpion</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>try { if (localStorage.getItem("regles-vues:" + (location.pathname.split("/").pop() || "index.html"))) document.documentElement.classList.add("rules-seen"); } catch (e) {}</script>
+<style>
+  :root { --bg: #0f1419; --panel: #1a2129; --grid: #1f2730; --text: #e6edf3; --muted: #8b98a5; --accent: #facc15; --green: #4ade80; --x: #60a5fa; --o: #f472b6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 16px; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; color: var(--text); background: var(--grid); }
+  button:hover { background: #2a3440; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(820px, 100%); }
+  .topbar h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+  .topbar a, .topbar button { font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; background: var(--grid); padding: 8px 12px; border-radius: 8px; }
+  .main { display: flex; gap: 20px; align-items: flex-start; justify-content: center; flex-wrap: wrap; width: 100%; }
+  .board-col { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .status { font-size: 20px; font-weight: 700; min-height: 28px; text-align: center; }
+  .status .x { color: var(--x); } .status .o { color: var(--o); }
+
+  .board { --s: min(420px, calc(100vw - 32px)); width: var(--s); height: var(--s); display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 10px;
+    background: var(--panel); padding: 10px; border-radius: 16px; position: relative; }
+  .cell { background: var(--grid); border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; padding: 0; }
+  .cell:hover:not(.taken) { background: #26313d; }
+  .cell svg { width: 70%; height: 70%; overflow: visible; }
+  .cell .ghost { opacity: .22; }
+  .cell.win { background: color-mix(in srgb, var(--wc) 30%, var(--grid)); box-shadow: 0 0 0 3px var(--wc) inset; }
+  .mark-x line { stroke: var(--x); stroke-width: 14; stroke-linecap: round; stroke-dasharray: 120; stroke-dashoffset: 0; }
+  .mark-o circle { stroke: var(--o); stroke-width: 13; fill: none; stroke-dasharray: 260; stroke-dashoffset: 0; }
+  .anim line, .anim circle { animation: draw .35s ease-out both; }
+  .anim line:nth-child(2) { animation-delay: .15s; }
+  @keyframes draw { from { stroke-dashoffset: 260; } }
+
+  .panel { width: min(320px, 100%); display: flex; flex-direction: column; gap: 12px; }
+  .box { background: var(--panel); border-radius: 12px; padding: 14px; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 10px 0 6px; }
+  .label:first-child { margin-top: 0; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; }
+  .seg button { padding: 8px 4px; font-size: 13px; background: transparent; }
+  .seg button.on { background: var(--accent); color: #2b2200; font-weight: 700; }
+  .desc { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .new { width: 100%; margin-top: 12px; padding: 11px; font-weight: 700; background: var(--green); color: #062b14; }
+  .new:hover { background: #6ee7a0; }
+  .scores { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; gap: 6px; }
+  .scores div { background: var(--bg); border-radius: 10px; padding: 8px 4px; }
+  .scores b { display: block; font-size: 26px; }
+  .scores span { font-size: 12px; color: var(--muted); }
+  .scores .sx b { color: var(--x); } .scores .so b { color: var(--o); }
+
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal.hidden { display: none; }
+  .card { background: var(--panel); width: min(600px, 100%); max-height: 90vh; overflow: auto; border-radius: 14px; padding: 22px 24px; line-height: 1.5; }
+  .card h2 { margin: 0 0 6px; }
+  .card h3 { margin: 16px 0 4px; font-size: 15px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+  .card p, .card ul { margin: 4px 0; color: #c9d4de; font-size: 15px; }
+  .card ul { padding-left: 20px; }
+  .card .ok { display: block; margin: 18px auto 0; padding: 10px 24px; font-weight: 700; background: var(--green); color: #062b14; }
+  .end-card { --kc: var(--accent); position: relative; width: min(520px, 100%); text-align: center; padding: 40px 28px 30px;
+    background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--kc) 22%, var(--panel)) 0%, var(--panel) 70%);
+    border: 3px solid var(--kc); border-radius: 22px; box-shadow: 0 0 60px color-mix(in srgb, var(--kc) 45%, transparent); animation: pop .5s cubic-bezier(.2,1.6,.4,1); }
+  .end-card.lose { --kc: #f87171; } .end-card.draw { --kc: #93c5fd; } .end-card.x { --kc: var(--x); } .end-card.o { --kc: var(--o); }
+  .end-emoji { font-size: 100px; line-height: 1; animation: bounce 1.6s ease-in-out infinite; }
+  .end-title { font-size: clamp(40px, 9vw, 66px); font-weight: 900; color: var(--kc); margin: 14px 0 6px; line-height: 1.05; }
+  .end-sub { font-size: 20px; }
+  .end-stats { font-size: 15px; color: var(--muted); margin-top: 8px; }
+  .end-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
+  .end-actions button, .end-actions a { font-size: 16px; font-weight: 700; padding: 12px 20px; border-radius: 10px; text-decoration: none; color: var(--text); background: var(--grid); }
+  .end-actions .primary { background: var(--kc); color: #111; }
+  #end { background: rgba(0,0,0,.78); backdrop-filter: blur(3px); }
+  #confetti { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+</style>
+<link rel="stylesheet" href="mobile.css">
+<script src="common.js" defer></script>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Jeux</a>
+    <h1>❌ MORPION ⭕</h1>
+    <button id="rules-btn">📖 Règles</button>
+  </div>
+
+  <div class="main">
+    <div class="board-col">
+      <div class="status" id="status"></div>
+      <div class="board" id="board"></div>
+    </div>
+    <aside class="panel">
+      <div class="box">
+        <div class="label">Score</div>
+        <div class="scores">
+          <div class="sx"><b id="sc-x">0</b><span id="name-x">X</span></div>
+          <div><b id="sc-d">0</b><span>Nuls</span></div>
+          <div class="so"><b id="sc-o">0</b><span id="name-o">O</span></div>
+        </div>
+      </div>
+      <div class="box">
+        <div class="label">Mode</div>
+        <div class="seg" id="seg-mode"><button data-v="ai">🤖 Contre l'ordi</button><button data-v="pvp">👥 À deux</button></div>
+        <div id="lvl-box">
+          <div class="label">Niveau de l'ordinateur</div>
+          <div class="seg" id="seg-level"><button data-v="1">Facile</button><button data-v="2">Moyen</button><button data-v="3">Imbattable</button></div>
+          <div class="desc" id="lvl-desc"></div>
+        </div>
+        <button class="new" id="new">Nouvelle partie</button>
+      </div>
+    </aside>
+  </div>
+
+  <div class="modal hidden" id="end">
+    <div class="end-card" id="end-card">
+      <div class="end-emoji" id="end-emoji"></div>
+      <div class="end-title" id="end-title"></div>
+      <div class="end-sub" id="end-sub"></div>
+      <div class="end-stats" id="end-stats"></div>
+      <div class="end-actions">
+        <button class="primary" id="end-again">↻ Rejouer</button>
+        <button id="end-close">👁 Voir le plateau</button>
+        <a href="index.html">☰ Menu</a>
+      </div>
+    </div>
+  </div>
+  <canvas id="confetti"></canvas>
+
+  <div class="modal" id="rules">
+    <div class="card">
+      <h2>❌ Morpion — Règles</h2>
+      <h3>But du jeu</h3>
+      <p>Être le premier à aligner <b>3 de tes symboles</b> (❌ ou ⭕) sur une ligne, une colonne ou une diagonale.</p>
+      <h3>Règles</h3>
+      <ul>
+        <li>La grille fait 3 × 3 cases. Les joueurs posent leur symbole chacun leur tour sur une case vide.</li>
+        <li>❌ commence toujours. Les joueurs échangent leurs symboles à chaque nouvelle partie, pour que chacun commence à son tour.</li>
+        <li>Si la grille est pleine sans alignement, la partie est nulle.</li>
+      </ul>
+      <h3>Modes et niveaux</h3>
+      <ul>
+        <li><b>À deux</b> : sur le même écran, chacun son tour.</li>
+        <li><b>Facile</b> : l'ordinateur joue au hasard.</li>
+        <li><b>Moyen</b> : il gagne quand il peut et bloque tes alignements, sinon il joue au hasard.</li>
+        <li><b>Imbattable</b> : il calcule toutes les parties possibles. Le meilleur résultat possible contre lui est la partie nulle !</li>
+      </ul>
+      <h3>Commandes</h3>
+      <p>Clique sur une case (ou tape les chiffres 1 à 9 du pavé numérique, dans la disposition de la grille).</p>
+      <h3>Bonus</h3>
+      <p>Pas de bonus : un classique tout simple. 😉</p>
+      <button class="ok" id="rules-ok">C'est parti !</button>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+const LEVELS = { 1: 'Joue au hasard.', 2: 'Gagne ou bloque quand il peut.', 3: 'Ne perd jamais.' };
+const settings = { mode: 'ai', level: 2 };
+let board, turn, humanSym = 'X', over = null, thinking = false, gameId = 0, scores = { X: 0, O: 0, D: 0 }, games = 0;
+
+const SVG = {
+  X: '<svg viewBox="0 0 100 100" class="mark-x"><line x1="20" y1="20" x2="80" y2="80"/><line x1="80" y1="20" x2="20" y2="80"/></svg>',
+  O: '<svg viewBox="0 0 100 100" class="mark-o"><circle cx="50" cy="50" r="32"/></svg>',
+};
+
+function result(b) {
+  for (const l of LINES) if (b[l[0]] && b[l[0]] === b[l[1]] && b[l[0]] === b[l[2]]) return { p: b[l[0]], line: l };
+  return b.every(Boolean) ? { p: 'D' } : null;
+}
+
+function minimax(b, player, me, depth) {
+  const r = result(b);
+  if (r) return r.p === 'D' ? 0 : r.p === me ? 10 - depth : depth - 10;
+  const scores = [];
+  for (let i = 0; i < 9; i++) if (!b[i]) {
+    b[i] = player; scores.push(minimax(b, player === 'X' ? 'O' : 'X', me, depth + 1)); b[i] = null;
+  }
+  return player === me ? Math.max(...scores) : Math.min(...scores);
+}
+
+function aiMove() {
+  const me = turn, opp = me === 'X' ? 'O' : 'X';
+  const free = board.map((v, i) => v ? -1 : i).filter(i => i >= 0);
+  const rnd = a => a[Math.floor(Math.random() * a.length)];
+  const winning = p => free.find(i => { board[i] = p; const w = result(board); board[i] = null; return w && w.p === p; });
+  if (settings.level === 1) return rnd(free);
+  if (settings.level === 2) {
+    const w = winning(me); if (w !== undefined) return w;
+    const b = winning(opp); if (b !== undefined) return b;
+    return rnd(free);
+  }
+  let best = -Infinity, moves = [];
+  for (const i of free) {
+    board[i] = me; const s = minimax(board, opp, me, 1); board[i] = null;
+    if (s > best) { best = s; moves = [i]; } else if (s === best) moves.push(i);
+  }
+  return rnd(moves);
+}
+
+const isAiTurn = () => settings.mode === 'ai' && turn !== humanSym;
+
+function play(i) {
+  board[i] = turn;
+  const r = result(board);
+  render(i);
+  if (r) return finish(r);
+  turn = turn === 'X' ? 'O' : 'X';
+  render();
+  maybeAI();
+}
+
+function maybeAI() {
+  if (over || !isAiTurn()) return;
+  thinking = true; render();
+  const id = gameId;
+  setTimeout(() => { if (id !== gameId) return; thinking = false; play(aiMove()); }, 450);
+}
+
+function finish(r) {
+  over = r; scores[r.p]++;
+  render();
+  const id = gameId;
+  setTimeout(() => { if (id === gameId) showEnd(); }, 800);
+}
+
+function newGame(swap = true) {
+  gameId++; hideEnd();
+  if (swap && games > 0) humanSym = humanSym === 'X' ? 'O' : 'X';
+  games++;
+  board = Array(9).fill(null); turn = 'X'; over = null; thinking = false;
+  render(); maybeAI();
+}
+
+// ---------- affichage ----------
+const cells = [];
+for (let i = 0; i < 9; i++) {
+  const c = document.createElement('button');
+  c.className = 'cell';
+  c.addEventListener('click', () => { if (!over && !thinking && !isAiTurn() && !board[i]) play(i); });
+  c.addEventListener('mouseenter', () => { hover = i; render(); });
+  c.addEventListener('mouseleave', () => { hover = -1; render(); });
+  $('board').appendChild(c); cells.push(c);
+}
+let hover = -1, animIdx = -1;
+
+const name = s => settings.mode === 'pvp' ? `Joueur ${s === 'X' ? '❌' : '⭕'}` : s === humanSym ? 'Toi' : 'Ordi';
+
+function render(anim) {
+  if (anim !== undefined) animIdx = anim;
+  const wl = over && over.line ? over.line : [];
+  cells.forEach((c, i) => {
+    const v = board[i];
+    c.className = 'cell' + (v ? ' taken' : '') + (wl.includes(i) ? ' win' : '');
+    c.style.setProperty('--wc', over && over.p === 'O' ? 'var(--o)' : 'var(--x)');
+    let html = v ? SVG[v] : '';
+    if (v && i === animIdx) html = html.replace('class="mark', 'class="anim mark');
+    if (!v && i === hover && !over && !thinking && !isAiTurn()) html = SVG[turn].replace('class="mark', 'class="ghost mark');
+    if (c._h !== html) { c.innerHTML = html; c._h = html; }
+  });
+  const sym = s => `<span class="${s.toLowerCase()}">${s === 'X' ? '❌' : '⭕'}</span>`;
+  $('status').innerHTML = over
+    ? (over.p === 'D' ? '🤝 Partie nulle' : `${sym(over.p)} ${name(over.p)} ${settings.mode === 'ai' && over.p === humanSym ? 'as gagné !' : 'gagne !'}`)
+    : thinking ? '🤖 L\'ordi réfléchit…'
+    : `${sym(turn)} ${settings.mode === 'ai' ? (turn === humanSym ? 'À toi de jouer' : 'Tour de l\'ordi') : 'Au tour du ' + name(turn)}`;
+  $('sc-x').textContent = scores.X; $('sc-o').textContent = scores.O; $('sc-d').textContent = scores.D;
+  $('name-x').textContent = '❌ ' + name('X'); $('name-o').textContent = '⭕ ' + name('O');
+  for (const [id, key] of [['seg-mode', 'mode'], ['seg-level', 'level']])
+    $(id).querySelectorAll('button').forEach(b => b.classList.toggle('on', String(settings[key]) === b.dataset.v));
+  $('lvl-box').style.display = settings.mode === 'ai' ? '' : 'none';
+  $('lvl-desc').textContent = LEVELS[settings.level];
+}
+
+// ---------- fin ----------
+function showEnd() {
+  const ai = settings.mode === 'ai', p = over.p;
+  let kind, emoji, title;
+  if (p === 'D') { kind = 'draw'; emoji = '🤝'; title = 'Partie nulle'; }
+  else if (ai) { kind = p === humanSym ? 'win' : 'lose'; emoji = p === humanSym ? '🏆' : '🤖'; title = p === humanSym ? 'Victoire !' : 'Défaite…'; }
+  else { kind = p.toLowerCase(); emoji = '🏆'; title = `Victoire des ${p === 'X' ? '❌' : '⭕'} !`; }
+  $('end-card').className = 'end-card ' + kind;
+  $('end-emoji').textContent = emoji; $('end-title').textContent = title;
+  $('end-sub').textContent = p === 'D' ? 'Personne n\'a réussi à aligner 3 symboles.' : 'Trois symboles alignés !';
+  $('end-stats').textContent = `Score : ❌ ${name('X')} ${scores.X} · ${scores.D} nul${scores.D > 1 ? 's' : ''} · ⭕ ${name('O')} ${scores.O}`;
+  $('end').classList.remove('hidden');
+  if (kind !== 'lose' && kind !== 'draw') confetti();
+}
+function hideEnd() { $('end').classList.add('hidden'); stopConfetti(); }
+
+let confettiRAF = null;
+function confetti() {
+  const c = $('confetti'), cx = c.getContext('2d'); c.width = innerWidth; c.height = innerHeight;
+  const colors = ['#facc15', '#4ade80', '#60a5fa', '#f472b6', '#fb923c', '#c084fc'];
+  const parts = Array.from({ length: 180 }, () => ({ x: Math.random() * c.width, y: -20 - Math.random() * c.height * .6, vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 3, r: Math.random() * 6, vr: (Math.random() - .5) * .3, s: 7 + Math.random() * 7, c: colors[Math.floor(Math.random() * 6)] }));
+  const t0 = performance.now(); cancelAnimationFrame(confettiRAF);
+  const step = t => {
+    cx.clearRect(0, 0, c.width, c.height);
+    for (const p of parts) { p.x += p.vx; p.y += p.vy; p.vy += .03; p.r += p.vr; cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c; cx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); cx.restore(); }
+    if (t - t0 < 5000) confettiRAF = requestAnimationFrame(step); else cx.clearRect(0, 0, c.width, c.height);
+  };
+  confettiRAF = requestAnimationFrame(step);
+}
+function stopConfetti() { cancelAnimationFrame(confettiRAF); const c = $('confetti'); c.getContext('2d').clearRect(0, 0, c.width, c.height); }
+
+// ---------- contrôles ----------
+for (const [id, key, num] of [['seg-mode', 'mode', false], ['seg-level', 'level', true]]) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const v = num ? +b.dataset.v : b.dataset.v;
+    if (settings[key] === v) return;
+    settings[key] = v;
+    if (key === 'mode') { scores = { X: 0, O: 0, D: 0 }; games = 0; humanSym = 'X'; newGame(false); }
+    else if (!board.some(Boolean)) newGame(false); else render();
+  });
+}
+$('new').onclick = () => newGame();
+$('end-again').onclick = () => newGame();
+$('end-close').onclick = hideEnd;
+$('rules-ok').onclick = () => $('rules').classList.add('hidden');
+$('rules-btn').onclick = () => $('rules').classList.remove('hidden');
+const isOpen = id => !$(id).classList.contains('hidden');
+const NUMPAD = { 7: 0, 8: 1, 9: 2, 4: 3, 5: 4, 6: 5, 1: 6, 2: 7, 3: 8 };
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { $('rules').classList.add('hidden'); hideEnd(); return; }
+  if (isOpen('rules') || isOpen('end')) return;
+  if (e.key in NUMPAD) cells[NUMPAD[e.key]].click();
+});
+
+newGame(false);
+</script>
+</body>
+</html>

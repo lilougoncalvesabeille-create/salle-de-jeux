@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Forge stellaire</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>try { if (localStorage.getItem("regles-vues:" + (location.pathname.split("/").pop() || "index.html"))) document.documentElement.classList.add("rules-seen"); } catch (e) {}</script>
+<style>
+  :root { --bg: #0b0f1a; --panel: #151c2b; --grid: #1e2738; --text: #e6edf3; --muted: #8b98a5; --accent: #facc15; --green: #4ade80;
+    --violet: #a78bfa; --pink: #f472b6; --cyan: #22d3ee; --red: #f87171; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; color: var(--text); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: radial-gradient(ellipse at 20% -40%, #1e1b4b 0%, transparent 45%), radial-gradient(ellipse at 90% 100%, #312e81 0%, transparent 50%), var(--bg);
+    display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px; overflow-x: hidden; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; color: var(--text); background: var(--grid); }
+  button:hover:not(:disabled) { filter: brightness(1.2); }
+  button:disabled { cursor: default; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(1240px, 100%); }
+  .topbar h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+  .topbar a, .topbar button { font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; background: var(--grid); padding: 8px 12px; border-radius: 8px; }
+  .main { display: grid; grid-template-columns: 340px 1fr 360px; gap: 16px; width: min(1240px, 100%); align-items: start; }
+  @media (max-width: 1100px) { .main { grid-template-columns: 1fr 1fr; } .forge { grid-column: 1 / -1; } }
+  @media (max-width: 720px) {
+    .main { grid-template-columns: 1fr; }
+    /* Sur téléphone : forge, améliorations, puis machines juste en dessous, puis le reste. */
+    .mid { display: contents !important; }
+    .forge { order: 0; } .b-ups { order: 1; } .b-machines { order: 2; } .mid > .box:not(.b-ups) { order: 3; }
+  }
+  .box { background: color-mix(in srgb, var(--panel) 92%, transparent); border-radius: 14px; padding: 14px; border: 1px solid #222c40; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 0 0 8px; display: flex; justify-content: space-between; align-items: center; }
+
+  /* forge */
+  .forge { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; position: relative; }
+  .dust { font-size: 34px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .dust small { display: block; font-size: 14px; font-weight: 600; color: var(--muted); }
+  .cps { font-size: 15px; color: var(--violet); font-weight: 600; }
+  .star-btn { width: 220px; height: 220px; border-radius: 50%; padding: 0; position: relative; background: transparent; margin: 6px 0;
+    transition: transform .06s; -webkit-tap-highlight-color: transparent; }
+  .star-btn:hover { filter: none !important; transform: scale(1.03); }
+  .star-btn:active { transform: scale(.94); }
+  .star { position: absolute; inset: 10px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff7cc 0%, #fde047 22%, #f59e0b 55%, #b45309 80%, #7c2d12 100%);
+    box-shadow: 0 0 40px 8px rgba(250, 204, 21, .45), 0 0 90px 20px rgba(245, 158, 11, .25), inset -14px -18px 30px rgba(0,0,0,.35);
+    animation: glow 3s ease-in-out infinite; }
+  .star-btn.hot .star { background: radial-gradient(circle at 35% 30%, #fff 0%, #fecaca 20%, #f87171 50%, #b91c1c 80%, #450a0a 100%);
+    box-shadow: 0 0 50px 14px rgba(248, 113, 113, .6), 0 0 120px 30px rgba(239, 68, 68, .35), inset -14px -18px 30px rgba(0,0,0,.35); }
+  .ring { position: absolute; inset: -12px; border-radius: 50%; border: 2px dashed rgba(250, 204, 21, .3); animation: spin 30s linear infinite; pointer-events: none; }
+  @keyframes glow { 50% { filter: brightness(1.12); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .heat { width: 100%; }
+  .heat .bar { height: 12px; background: var(--grid); border-radius: 999px; overflow: hidden; }
+  .heat .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #f59e0b, #ef4444); border-radius: 999px; transition: width .1s; }
+  .heat .txt { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .heat.on .txt { color: var(--red); font-weight: 800; }
+  .buffs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; min-height: 26px; }
+  .buff { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1px solid var(--c); color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); }
+  .float { position: fixed; pointer-events: none; font-weight: 900; font-size: 18px; color: #fde68a; text-shadow: 0 2px 6px #000; z-index: 15;
+    animation: floatUp 1s ease-out forwards; }
+  .float.big { font-size: 24px; color: #fca5a5; }
+  @keyframes floatUp { to { transform: translateY(-70px); opacity: 0; } }
+  .spark { position: fixed; width: 6px; height: 6px; border-radius: 50%; background: #fde047; pointer-events: none; z-index: 14; animation: spark .7s ease-out forwards; }
+  @keyframes spark { to { transform: translate(var(--dx), var(--dy)) scale(.2); opacity: 0; } }
+
+  /* améliorations */
+  .ups { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; max-height: 330px; overflow: auto; }
+  .up { text-align: left; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; border: 1px solid #2a3550; }
+  .up .n { font-weight: 700; font-size: 13px; }
+  .up .d { font-size: 11px; color: var(--muted); line-height: 1.3; }
+  .up .c { font-size: 12px; font-weight: 800; color: var(--accent); }
+  .up.poor { opacity: .55; } .up.poor .c { color: var(--red); }
+  .up.special { border-color: var(--violet); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 13px; color: var(--muted); }
+  .stats b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .nova { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+  .nova button { padding: 10px; font-weight: 800; background: linear-gradient(90deg, #7c3aed, #db2777); color: #fff; }
+  .nova button:disabled { opacity: .4; }
+  .achs { display: grid; grid-template-columns: repeat(auto-fill, 38px); gap: 6px; }
+  .ach { width: 38px; height: 38px; border-radius: 8px; background: var(--grid); display: flex; align-items: center; justify-content: center; font-size: 20px; filter: grayscale(1); opacity: .3; }
+  .ach.got { filter: none; opacity: 1; background: #2a2340; box-shadow: 0 0 0 1px var(--violet) inset; }
+
+  /* bâtiments */
+  .modes { display: flex; gap: 4px; }
+  .modes button { padding: 3px 8px; font-size: 12px; }
+  .modes button.on { background: var(--accent); color: #2b2200; font-weight: 700; }
+  .blds { display: flex; flex-direction: column; gap: 6px; }
+  .bld { display: grid; grid-template-columns: 44px 1fr auto; gap: 10px; align-items: center; text-align: left; padding: 8px 10px; border: 1px solid #2a3550; }
+  .bld .i { font-size: 30px; text-align: center; }
+  .bld .n { font-weight: 700; }
+  .bld .d { font-size: 11px; color: var(--muted); }
+  .bld .c { font-size: 13px; font-weight: 800; color: var(--accent); }
+  .bld .q { font-size: 26px; font-weight: 900; color: #475569; font-variant-numeric: tabular-nums; }
+  .bld.poor { opacity: .55; } .bld.poor .c { color: var(--red); }
+  .bld.locked { opacity: .35; }
+
+  /* comète */
+  .comet { position: fixed; z-index: 12; font-size: 44px; cursor: pointer; filter: drop-shadow(0 0 12px #fde047) drop-shadow(0 0 24px #f59e0b);
+    user-select: none; padding: 6px; animation: twinkle .4s ease-in-out infinite alternate; }
+  @keyframes twinkle { to { transform: scale(1.15) rotate(10deg); } }
+
+  .toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 25; }
+  .toast { background: var(--panel); border: 1px solid var(--violet); border-radius: 10px; padding: 10px 14px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.5);
+    animation: tin .3s ease-out; max-width: 300px; }
+  .toast b { color: var(--violet); }
+  @keyframes tin { from { transform: translateX(40px); opacity: 0; } }
+
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal.hidden { display: none; }
+  .card { background: var(--panel); width: min(620px, 100%); max-height: 90vh; overflow: auto; border-radius: 14px; padding: 22px 24px; line-height: 1.5; }
+  .card h2 { margin: 0 0 6px; }
+  .card h3 { margin: 16px 0 4px; font-size: 15px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+  .card p, .card ul { margin: 4px 0; color: #c9d4de; font-size: 15px; }
+  .card ul { padding-left: 20px; }
+  .card .ok { display: block; margin: 18px auto 0; padding: 10px 24px; font-weight: 700; background: var(--green); color: #062b14; }
+  .big-card { --kc: var(--violet); width: min(540px, 100%); text-align: center; padding: 36px 26px 28px;
+    background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--kc) 25%, var(--panel)) 0%, var(--panel) 70%);
+    border: 3px solid var(--kc); border-radius: 22px; box-shadow: 0 0 60px color-mix(in srgb, var(--kc) 45%, transparent); animation: pop .5s cubic-bezier(.2,1.6,.4,1); }
+  .big-card.gold { --kc: var(--accent); }
+  .big-emoji { font-size: 90px; line-height: 1; animation: bounce 1.6s ease-in-out infinite; }
+  .big-title { font-size: clamp(34px, 8vw, 56px); font-weight: 900; color: var(--kc); margin: 12px 0 6px; line-height: 1.05; }
+  .big-text { font-size: 17px; color: #c9d4de; }
+  .big-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 22px; }
+  .big-actions button { font-size: 16px; font-weight: 700; padding: 12px 20px; border-radius: 10px; }
+  .big-actions .primary { background: var(--kc); color: #111; }
+  .flash { position: fixed; inset: 0; background: #fff; z-index: 40; pointer-events: none; animation: flash 1.2s ease-out forwards; }
+  @keyframes flash { to { opacity: 0; } }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+  .reset { background: transparent; color: var(--muted); font-size: 12px; text-decoration: underline; padding: 4px; margin-top: 8px; }
+</style>
+<link rel="stylesheet" href="mobile.css">
+<script src="common.js" defer></script>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Jeux</a>
+    <h1>✨ FORGE STELLAIRE</h1>
+    <button id="rules-btn">📖 Règles</button>
+  </div>
+
+  <div class="main">
+    <section class="box forge">
+      <div class="dust"><span id="dust">0</span><small>poussière d'étoile ✨</small></div>
+      <div class="cps"><span id="cps">0</span> / seconde</div>
+      <button class="star-btn" id="star" aria-label="Forger de la poussière d'étoile"><span class="ring"></span><span class="star"></span></button>
+      <div class="cps" style="color:var(--muted);font-size:13px">+<span id="click">1</span> par clic</div>
+      <div class="heat" id="heat"><div class="bar"><i id="heat-bar"></i></div><div class="txt" id="heat-txt">Surchauffe : clique vite pour remplir la jauge !</div></div>
+      <div class="buffs" id="buffs"></div>
+    </section>
+
+    <section class="mid" style="display:flex;flex-direction:column;gap:16px">
+      <div class="box b-ups">
+        <div class="label"><span>🔧 Améliorations</span><span id="up-count"></span></div>
+        <div class="ups" id="ups"></div>
+      </div>
+      <div class="box">
+        <div class="label">📊 Statistiques & Supernova</div>
+        <div class="stats" id="stats"></div>
+        <div class="nova">
+          <span id="nova-txt"></span>
+          <button id="nova-btn">💥 Déclencher une Supernova</button>
+        </div>
+      </div>
+      <div class="box">
+        <div class="label"><span>🏅 Succès</span><span id="ach-count"></span></div>
+        <div class="achs" id="achs"></div>
+        <button class="reset" id="reset">Effacer la sauvegarde</button>
+      </div>
+    </section>
+
+    <section class="box b-machines">
+      <div class="label"><span>🏗️ Machines</span>
+        <span class="modes" id="modes"><button data-v="1">×1</button><button data-v="10">×10</button><button data-v="100">×100</button><button data-v="max">Max</button></span>
+      </div>
+      <div class="blds" id="blds"></div>
+    </section>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+
+  <div class="modal hidden" id="big">
+    <div class="big-card" id="big-card">
+      <div class="big-emoji" id="big-emoji"></div>
+      <div class="big-title" id="big-title"></div>
+      <div class="big-text" id="big-text"></div>
+      <div class="big-actions" id="big-actions"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="rules">
+    <div class="card">
+      <h2>✨ Forge stellaire — Règles</h2>
+      <h3>But du jeu</h3>
+      <p>Forger toujours plus de <b>poussière d'étoile</b> ✨. Il n'y a pas de fin : c'est un jeu « idle » (incrémental), le but est de faire grimper ta production le plus haut possible.</p>
+      <h3>Comment ça marche</h3>
+      <ul>
+        <li><b>Clique sur l'étoile</b> pour forger de la poussière.</li>
+        <li>Achète des <b>machines</b> 🏗️ (sondes, robots, bases lunaires… jusqu'au multivers) : elles produisent de la poussière toutes seules, chaque seconde, même quand tu ne cliques pas.</li>
+        <li>Chaque machine achetée coûte 15 % plus cher que la précédente. Les boutons ×10, ×100 et Max permettent d'en acheter plusieurs d'un coup.</li>
+        <li>Achète des <b>améliorations</b> 🔧 : elles doublent la production d'une machine, renforcent tes clics ou débloquent des mécaniques spéciales. De nouvelles apparaissent au fur et à mesure.</li>
+      </ul>
+      <h3>Mécaniques spéciales</h3>
+      <ul>
+        <li>🔥 <b>Surchauffe</b> : chaque clic remplit la jauge, qui redescend toute seule. Remplis-la à fond en cliquant très vite : pendant 10 secondes, tes clics rapportent <b>×10</b> !</li>
+        <li>☄️ <b>Comètes</b> : de temps en temps, une comète traverse l'écran. Attrape-la avant qu'elle disparaisse ! Elle donne au hasard : <b>Frénésie</b> (production ×7 pendant 30 s), <b>Pluie d'étoiles</b> (un gros paquet de poussière d'un coup) ou <b>Tempête de clics</b> (clics ×50 pendant 10 s).</li>
+        <li>💥 <b>Supernova</b> (prestige) : quand tu as forgé assez de poussière dans la partie (10 millions au minimum), tu peux tout faire exploser. Tu perds tes machines, tes améliorations et ta poussière, mais tu gagnes des <b>éclats stellaires</b> 💎 qui donnent <b>+5 % de production chacun, pour toujours</b>. Ta deuxième partie ira bien plus vite !</li>
+        <li>🏅 <b>Succès</b> : chaque succès débloqué donne +1 % de production pour toujours.</li>
+        <li>💤 <b>Production hors-ligne</b> : quand tu reviens après être parti, tes machines ont travaillé à 50 % de leur vitesse (jusqu'à 12 h). Une amélioration permet de monter à 100 %.</li>
+      </ul>
+      <h3>Sauvegarde</h3>
+      <p>La partie est sauvegardée automatiquement dans ce navigateur toutes les 5 secondes. Le lien « Effacer la sauvegarde » permet de tout recommencer de zéro.</p>
+      <h3>Bonus</h3>
+      <p>Les comètes, la surchauffe, les éclats stellaires et les succès sont tes bonus : profites-en au maximum !</p>
+      <button class="ok" id="rules-ok">C'est parti !</button>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ---------- données ----------
+const BUILD = [
+  { id: 'probe',   icon: '🛰️', name: 'Sonde',               base: 15,    cps: .1,     desc: 'Ramasse la poussière qui passe.' },
+  { id: 'robot',   icon: '🤖', name: 'Robot mineur',        base: 100,   cps: 1,      desc: 'Creuse les astéroïdes.' },
+  { id: 'moon',    icon: '🌙', name: 'Base lunaire',        base: 1100,  cps: 8,      desc: 'Une colonie entière au travail.' },
+  { id: 'factory', icon: '🏭', name: 'Usine orbitale',      base: 12000, cps: 47,     desc: 'Production à la chaîne en apesanteur.' },
+  { id: 'ring',    icon: '🪐', name: 'Anneau planétaire',   base: 1.3e5, cps: 260,    desc: 'Récolte la poussière des anneaux.' },
+  { id: 'portal',  icon: '🌀', name: 'Portail galactique',  base: 1.4e6, cps: 1400,   desc: 'Aspire la poussière d\'autres galaxies.' },
+  { id: 'hole',    icon: '🕳️', name: 'Trou noir apprivoisé', base: 2e7,   cps: 7800,   desc: 'Il recrache ce qu\'il avale.' },
+  { id: 'time',    icon: '⏳', name: 'Machine temporelle',  base: 3.3e8, cps: 44000,  desc: 'Récupère la poussière du futur.' },
+  { id: 'multi',   icon: '🌌', name: 'Multivers',           base: 5.1e9, cps: 260000, desc: 'Une infinité de forges parallèles.' },
+];
+const TIERS = [[1, 10, 'Entretien'], [10, 50, 'Turbo'], [25, 500, 'Surcharge'], [50, 5e4, 'Nanotech'], [100, 5e6, 'Singularité']];
+
+const UPGRADES = [];
+// clics
+[['c1', 'Doigt d\'acier', 'Clics ×2', 100], ['c2', 'Gant gravitationnel', 'Clics ×2', 1000], ['c3', 'Poing nébuleux', 'Clics ×2', 2e4],
+ ['c4', 'Clic quantique', 'Chaque clic gagne aussi 1 % de ta production/s', 5e5], ['c5', 'Main divine', 'Chaque clic gagne encore +2 % de ta production/s', 2e7]]
+  .forEach(([id, name, desc, cost]) => UPGRADES.push({ id, name, desc, cost, icon: '👆', show: () => G.total >= cost * .3 || G.clicks >= 50 && cost <= 1000 }));
+// machines ×2
+for (const b of BUILD) TIERS.forEach(([need, mult, tier], k) =>
+  UPGRADES.push({ id: `${b.id}${k}`, b: b.id, name: `${b.name} : ${tier}`, desc: `Production des ${b.name.toLowerCase()}s ×2`, cost: b.base * mult, icon: b.icon, show: () => (G.b[b.id] || 0) >= need }));
+// global
+[['g1', 5e4], ['g2', 5e5], ['g3', 5e6], ['g4', 5e7], ['g5', 5e8]].forEach(([id, cost], k) =>
+  UPGRADES.push({ id, name: `Synergie stellaire ${['I', 'II', 'III', 'IV', 'V'][k]}`, desc: 'Toute la production +15 %', cost, icon: '🔗', show: () => G.total >= cost * .3 }));
+// mécaniques spéciales
+UPGRADES.push(
+  { id: 'radar', special: true, name: 'Radar à comètes', desc: 'Les comètes passent 2 fois plus souvent', cost: 1e4, icon: '📡', show: () => G.comets >= 1 || G.total >= 5e3 },
+  { id: 'tail', special: true, name: 'Queue de comète', desc: 'Les comètes restent plus longtemps et leurs effets durent +50 %', cost: 2e5, icon: '☄️', show: () => G.comets >= 2 },
+  { id: 'cool', special: true, name: 'Refroidisseur', desc: 'La surchauffe se remplit 50 % plus vite et dure 15 s', cost: 2.5e4, icon: '❄️', show: () => G.heats >= 1 || G.total >= 1e4 },
+  { id: 'fusion', special: true, name: 'Fusion du cœur', desc: 'La surchauffe donne ×20 au lieu de ×10', cost: 3e6, icon: '☢️', show: () => G.heats >= 5 },
+  { id: 'night', special: true, name: 'Équipe de nuit', desc: 'Production hors-ligne à 100 % (au lieu de 50 %), jusqu\'à 24 h', cost: 1e6, icon: '🌙', show: () => G.total >= 2e5 },
+);
+const UPMAP = Object.fromEntries(UPGRADES.map(u => [u.id, u]));
+
+const ACH = [
+  ['d3', '✨', 'Première poussière', 'Forger 1 000 ✨', () => G.allTime >= 1e3],
+  ['d5', '💫', 'Petite nébuleuse', 'Forger 100 000 ✨', () => G.allTime >= 1e5],
+  ['d7', '🌟', 'Géante rouge', 'Forger 10 millions ✨', () => G.allTime >= 1e7],
+  ['d9', '🌠', 'Galaxie', 'Forger 1 milliard ✨', () => G.allTime >= 1e9],
+  ['d12', '🌌', 'Univers', 'Forger 1 billion ✨', () => G.allTime >= 1e12],
+  ['k1', '👆', 'Cliqueur', '100 clics', () => G.clicks >= 100],
+  ['k2', '🖐️', 'Cliqueur fou', '1 000 clics', () => G.clicks >= 1000],
+  ['k3', '🦾', 'Bras bionique', '10 000 clics', () => G.clicks >= 10000],
+  ['b1', '🏗️', 'Bâtisseur', '10 machines', () => totalB() >= 10],
+  ['b2', '🏙️', 'Industriel', '100 machines', () => totalB() >= 100],
+  ['b3', '🌆', 'Empire', '300 machines', () => totalB() >= 300],
+  ['b4', '🧩', 'Collection', 'Au moins une machine de chaque sorte', () => BUILD.every(b => G.b[b.id] > 0)],
+  ['c1', '☄️', 'Chasseur de comètes', 'Attraper 1 comète', () => G.comets >= 1],
+  ['c2', '🎯', 'Astronome', 'Attraper 10 comètes', () => G.comets >= 10],
+  ['h1', '🔥', 'Ça chauffe !', 'Déclencher la surchauffe', () => G.heats >= 1],
+  ['h2', '🌋', 'Volcan', 'Déclencher 25 surchauffes', () => G.heats >= 25],
+  ['s1', '💥', 'Supernova', 'Déclencher une Supernova', () => G.novas >= 1],
+  ['s2', '💎', 'Collectionneur d\'éclats', 'Posséder 10 éclats stellaires', () => G.shards >= 10],
+];
+
+// ---------- état & sauvegarde ----------
+// Fusionne une ancienne sauvegarde avec la structure actuelle : rien n'est perdu d'une version à l'autre.
+function mergeSave(def, s) { if (!s || typeof s !== 'object' || Array.isArray(s)) return def; for (const k in s) { const d = def[k], v = s[k]; def[k] = d && typeof d === 'object' && !Array.isArray(d) && v && typeof v === 'object' && !Array.isArray(v) ? mergeSave(d, v) : v; } return def; }
+const fresh = () => ({ dust: 0, total: 0, allTime: 0, clicks: 0, b: {}, up: [], shards: 0, novas: 0, comets: 0, heats: 0, ach: [], last: Date.now() });
+let G = fresh();
+let ups = new Set(), achs = new Set();
+let heat = 0, overheat = 0, buffs = {}, cometT = 30, mode = '1';
+const totalB = () => BUILD.reduce((t, b) => t + (G.b[b.id] || 0), 0);
+
+function save() {
+  G.up = [...ups]; G.ach = [...achs]; G.last = Date.now();
+  try { localStorage.setItem('forge-save', JSON.stringify(G)); } catch {}
+}
+function load() {
+  try { const s = JSON.parse(localStorage.getItem('forge-save')); if (s) G = mergeSave(fresh(), s); } catch {}
+  ups = new Set(G.up); achs = new Set(G.ach);
+}
+
+// ---------- calculs ----------
+const has = id => ups.has(id);
+function bMult(id) { let m = 1; TIERS.forEach((_, k) => { if (has(id + k)) m *= 2; }); return m; }
+function permMult() { return (1 + .05 * G.shards) * (1 + .01 * achs.size); }
+function baseCps() {
+  let s = 0;
+  for (const b of BUILD) s += (G.b[b.id] || 0) * b.cps * bMult(b.id);
+  let m = permMult();
+  for (const g of ['g1', 'g2', 'g3', 'g4', 'g5']) if (has(g)) m *= 1.15;
+  return s * m;
+}
+const cps = () => baseCps() * (buffs.frenzy > 0 ? 7 : 1);
+function clickValue() {
+  let v = 1;
+  for (const c of ['c1', 'c2', 'c3']) if (has(c)) v *= 2;
+  v *= permMult();
+  v += baseCps() * ((has('c4') ? .01 : 0) + (has('c5') ? .02 : 0));
+  if (buffs.storm > 0) v *= 50;
+  if (overheat > 0) v *= has('fusion') ? 20 : 10;
+  return v;
+}
+function costOf(b, n) {
+  const owned = G.b[b.id] || 0, r = 1.15;
+  return b.base * Math.pow(r, owned) * (Math.pow(r, n) - 1) / (r - 1);
+}
+function maxAffordable(b) {
+  const owned = G.b[b.id] || 0, r = 1.15;
+  const n = Math.floor(Math.log(G.dust * (r - 1) / (b.base * Math.pow(r, owned)) + 1) / Math.log(r));
+  return Math.max(0, n);
+}
+const gain = v => { G.dust += v; G.total += v; G.allTime += v; };
+
+// ---------- format des nombres ----------
+const UNITS = ['k', 'M', 'Md', 'Bn', 'Bd', 'Tn', 'Td', 'Qn', 'Qd', 'Sx', 'Sd'];
+function fmt(n) {
+  if (n < 1000) return n < 10 && n % 1 ? n.toFixed(1).replace('.', ',') : Math.floor(n).toLocaleString('fr-FR');
+  let i = -1;
+  while (n >= 1000 && i < UNITS.length - 1) { n /= 1000; i++; }
+  return n.toFixed(n < 10 ? 2 : n < 100 ? 1 : 0).replace('.', ',') + ' ' + UNITS[i];
+}
+function fmtTime(s) {
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60);
+  return h ? `${h} h ${String(m).padStart(2, '0')} min` : m ? `${m} min` : `${Math.floor(s)} s`;
+}
+
+// ---------- clic ----------
+$('star').addEventListener('pointerdown', e => {
+  const v = clickValue();
+  gain(v); G.clicks++;
+  if (overheat <= 0) {
+    heat += has('cool') ? 7.5 : 5;
+    if (heat >= 100) {
+      heat = 100; overheat = has('cool') ? 15 : 10; G.heats++;
+      toast(`🔥 <b>SURCHAUFFE !</b> Clics ×${has('fusion') ? 20 : 10} pendant ${overheat} s`);
+    }
+  }
+  floatText('+' + fmt(v), e.clientX, e.clientY, overheat > 0 || buffs.storm > 0);
+  for (let i = 0; i < 5; i++) spark(e.clientX, e.clientY);
+  render(true);
+});
+function floatText(t, x, y, big) {
+  const el = document.createElement('div');
+  el.className = 'float' + (big ? ' big' : '');
+  el.textContent = t; el.style.left = (x - 20 + Math.random() * 30) + 'px'; el.style.top = (y - 30) + 'px';
+  document.body.appendChild(el); setTimeout(() => el.remove(), 1000);
+}
+function spark(x, y) {
+  const el = document.createElement('div');
+  el.className = 'spark'; el.style.left = x + 'px'; el.style.top = y + 'px';
+  const a = Math.random() * Math.PI * 2, d = 30 + Math.random() * 50;
+  el.style.setProperty('--dx', Math.cos(a) * d + 'px'); el.style.setProperty('--dy', Math.sin(a) * d + 'px');
+  document.body.appendChild(el); setTimeout(() => el.remove(), 700);
+}
+
+// ---------- comètes ----------
+let cometEl = null;
+function spawnComet() {
+  if (cometEl) return;
+  const el = document.createElement('div');
+  el.className = 'comet'; el.textContent = '☄️'; el.title = 'Attrape-moi !';
+  const fromLeft = Math.random() < .5, life = has('tail') ? 20 : 13;
+  const y0 = 80 + Math.random() * (innerHeight - 220), y1 = 80 + Math.random() * (innerHeight - 220);
+  const x0 = fromLeft ? -60 : innerWidth + 10, x1 = fromLeft ? innerWidth + 10 : -60;
+  el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
+  document.body.appendChild(el); cometEl = el;
+  const anim = el.animate([{ left: x0 + 'px', top: y0 + 'px' }, { left: x1 + 'px', top: y1 + 'px' }], { duration: life * 1000, easing: 'linear' });
+  anim.onfinish = () => { el.remove(); cometEl = null; };
+  el.addEventListener('pointerdown', e => {
+    e.stopPropagation(); anim.cancel(); el.remove(); cometEl = null;
+    catchComet(e.clientX, e.clientY);
+  });
+}
+function catchComet(x, y) {
+  G.comets++;
+  const r = Math.random(), mult = has('tail') ? 1.5 : 1;
+  if (r < .5) { buffs.frenzy = 30 * mult; bigScreen('gold', '⚡', 'Frénésie !', `Production ×7 pendant ${30 * mult} secondes !`, 1800); }
+  else if (r < .85) {
+    const v = Math.max(13, Math.min(G.dust * .15, baseCps() * 900) + 13);
+    gain(v); floatText('+' + fmt(v), x, y, true);
+    bigScreen('gold', '🌠', 'Pluie d\'étoiles !', `+${fmt(v)} poussière d'étoile d'un coup !`, 1800);
+  } else { buffs.storm = 10 * mult; bigScreen('gold', '🌪️', 'Tempête de clics !', `Clics ×50 pendant ${10 * mult} secondes : clique vite !`, 1800); }
+  for (let i = 0; i < 20; i++) spark(x, y);
+  render();
+}
+
+// ---------- achats ----------
+function buyBuilding(b) {
+  const n = mode === 'max' ? maxAffordable(b) : +mode;
+  if (n <= 0) return;
+  const c = costOf(b, n);
+  if (G.dust < c) return;
+  G.dust -= c; G.b[b.id] = (G.b[b.id] || 0) + n;
+  render();
+}
+function buyUpgrade(id) {
+  const u = UPMAP[id];
+  if (!u || has(id) || G.dust < u.cost) return;
+  G.dust -= u.cost; ups.add(id);
+  if (u.special) toast(`${u.icon} <b>${u.name}</b> débloqué !`);
+  upKey = ''; render();
+}
+
+// ---------- supernova ----------
+const shardsGain = () => Math.floor(Math.sqrt(G.total / 1e7));
+function askNova() {
+  const s = shardsGain();
+  if (s < 1) return;
+  bigScreen('', '💥', 'Supernova ?', `Tu vas tout faire exploser : poussière, machines et améliorations repartent à zéro.<br>En échange, tu gagnes <b>${s} éclat${s > 1 ? 's' : ''} stellaire${s > 1 ? 's' : ''} 💎</b> : +${s * 5} % de production pour toujours (total : +${(G.shards + s) * 5} %).`, 0,
+    [['💥 Exploser !', 'primary', doNova], ['Pas encore', '', hideBig]]);
+}
+function doNova() {
+  const s = shardsGain();
+  G.shards += s; G.novas++;
+  G.dust = 0; G.total = 0; G.b = {}; ups = new Set(); heat = 0; overheat = 0; buffs = {};
+  upKey = ''; save();
+  const f = document.createElement('div'); f.className = 'flash'; document.body.appendChild(f); setTimeout(() => f.remove(), 1200);
+  bigScreen('gold', '🌟', 'SUPERNOVA !', `Tu as gagné ${s} éclat${s > 1 ? 's' : ''} 💎. Ta production est désormais boostée de <b>+${G.shards * 5} %</b> pour toujours. Une nouvelle étoile naît…`, 0,
+    [['✨ Recommencer plus fort', 'primary', hideBig]]);
+  render();
+}
+
+// ---------- écran géant & notifications ----------
+let bigTimer = null;
+function bigScreen(kind, emoji, title, text, autoClose, actions) {
+  clearTimeout(bigTimer);
+  $('big-card').className = 'big-card ' + kind;
+  $('big-emoji').textContent = emoji; $('big-title').textContent = title; $('big-text').innerHTML = text;
+  const box = $('big-actions'); box.innerHTML = '';
+  for (const [label, cls, fn] of (actions || [['Super !', 'primary', hideBig]])) {
+    const b = document.createElement('button'); b.textContent = label; b.className = cls; b.onclick = fn; box.appendChild(b);
+  }
+  $('big').classList.remove('hidden');
+  if (autoClose) bigTimer = setTimeout(hideBig, autoClose);
+}
+function hideBig() { $('big').classList.add('hidden'); }
+function toast(html) {
+  const t = document.createElement('div'); t.className = 'toast'; t.innerHTML = html;
+  $('toasts').appendChild(t); setTimeout(() => t.remove(), 4000);
+}
+
+// ---------- affichage ----------
+const bldEls = {};
+for (const b of BUILD) {
+  const el = document.createElement('button');
+  el.className = 'bld';
+  el.innerHTML = `<span class="i">${b.icon}</span><span><div class="n"></div><div class="d"></div><div class="c"></div></span><span class="q"></span>`;
+  el.addEventListener('click', () => buyBuilding(b));
+  $('blds').appendChild(el); bldEls[b.id] = el;
+}
+$('achs').innerHTML = ACH.map(([id, icon, name, desc]) => `<div class="ach" data-id="${id}" title="${name} — ${desc}">${icon}</div>`).join('');
+
+let upKey = '';
+function render(light) {
+  $('dust').textContent = fmt(G.dust);
+  $('cps').textContent = fmt(cps());
+  $('click').textContent = fmt(clickValue());
+  $('heat-bar').style.width = (overheat > 0 ? overheat / (has('cool') ? 15 : 10) * 100 : heat) + '%';
+  $('heat').classList.toggle('on', overheat > 0);
+  $('star').classList.toggle('hot', overheat > 0);
+  $('heat-txt').textContent = overheat > 0 ? `🔥 SURCHAUFFE ! Clics ×${has('fusion') ? 20 : 10} — ${Math.ceil(overheat)} s` : `Surchauffe : ${Math.floor(heat)} % — clique vite pour la remplir !`;
+  if (light) return;
+
+  $('buffs').innerHTML = [
+    buffs.frenzy > 0 ? `<span class="buff" style="--c:#facc15">⚡ Frénésie ×7 · ${Math.ceil(buffs.frenzy)} s</span>` : '',
+    buffs.storm > 0 ? `<span class="buff" style="--c:#f472b6">🌪️ Clics ×50 · ${Math.ceil(buffs.storm)} s</span>` : '',
+    G.shards ? `<span class="buff" style="--c:#a78bfa">💎 ${G.shards} éclat${G.shards > 1 ? 's' : ''} · +${G.shards * 5} %</span>` : '',
+  ].join('');
+
+  // machines : on montre celles possédées + la suivante, puis une machine mystère
+  const hidden1 = firstHidden();
+  BUILD.forEach((b, i) => {
+    const el = bldEls[b.id], owned = G.b[b.id] || 0;
+    const visible = isVisible(i), mystery = !visible && i === hidden1;
+    el.style.display = visible || mystery ? '' : 'none';
+    el.classList.toggle('locked', !visible);
+    const n = mode === 'max' ? Math.max(1, maxAffordable(b)) : +mode, c = costOf(b, n);
+    el.classList.toggle('poor', visible && G.dust < c);
+    el.disabled = !visible || G.dust < c;
+    el.querySelector('.n').textContent = visible ? b.name + (n > 1 ? ` ×${n}` : '') : '???';
+    el.querySelector('.d').textContent = visible ? `${b.desc} +${fmt(b.cps * bMult(b.id) * permMult())}/s chacun` : 'Continue à forger pour la découvrir…';
+    el.querySelector('.c').textContent = visible ? `${fmt(c)} ✨` : '';
+    el.querySelector('.q').textContent = owned || '';
+  });
+
+  // améliorations disponibles
+  const avail = UPGRADES.filter(u => !has(u.id) && u.show()).sort((a, b) => a.cost - b.cost);
+  const key = avail.map(u => u.id).join();
+  if (key !== upKey) {
+    upKey = key;
+    $('ups').innerHTML = avail.length ? avail.map(u => `<button class="up${u.special ? ' special' : ''}" data-id="${u.id}">
+      <span class="n">${u.icon} ${u.name}</span><span class="d">${u.desc}</span><span class="c">${fmt(u.cost)} ✨</span></button>`).join('')
+      : '<div class="empty">Aucune amélioration disponible pour l\'instant. Continue à forger et à acheter des machines !</div>';
+  }
+  $('ups').querySelectorAll('.up').forEach(el => { const poor = G.dust < UPMAP[el.dataset.id].cost; el.classList.toggle('poor', poor); el.disabled = poor; });
+  $('up-count').textContent = `${ups.size} / ${UPGRADES.length}`;
+
+  $('stats').innerHTML = `
+    <span>Forgé (partie)</span><b>${fmt(G.total)}</b>
+    <span>Forgé (total)</span><b>${fmt(G.allTime)}</b>
+    <span>Clics</span><b>${G.clicks.toLocaleString('fr-FR')}</b>
+    <span>Machines</span><b>${totalB()}</b>
+    <span>Comètes attrapées</span><b>${G.comets}</b>
+    <span>Surchauffes</span><b>${G.heats}</b>
+    <span>Éclats 💎</span><b>${G.shards} (+${G.shards * 5} %)</b>
+    <span>Succès</span><b>+${achs.size} %</b>`;
+  const s = shardsGain();
+  $('nova-txt').innerHTML = s >= 1
+    ? `Une Supernova te rapporterait <b style="color:var(--violet)">${s} éclat${s > 1 ? 's' : ''} 💎</b> (+${s * 5} % de production pour toujours).`
+    : `Forge au moins 10 M ✨ dans cette partie pour débloquer la Supernova (actuellement ${fmt(G.total)}).`;
+  $('nova-btn').disabled = s < 1;
+  document.querySelectorAll('.ach').forEach(el => el.classList.toggle('got', achs.has(el.dataset.id)));
+  $('ach-count').textContent = `${achs.size} / ${ACH.length} (+${achs.size} %)`;
+  $('modes').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === mode));
+}
+function isVisible(i) {
+  const b = BUILD[i];
+  return (G.b[b.id] || 0) > 0 || i === 0 || (G.b[BUILD[i - 1].id] || 0) > 0 || G.total >= b.base * .5;
+}
+function firstHidden() { return BUILD.findIndex((_, i) => !isVisible(i)); }
+
+$('ups').addEventListener('click', e => { const b = e.target.closest('.up'); if (b) buyUpgrade(b.dataset.id); });
+$('modes').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { mode = b.dataset.v; render(); } });
+$('nova-btn').onclick = askNova;
+$('reset').onclick = () => bigScreen('', '🗑️', 'Tout effacer ?', 'Ta sauvegarde, tes éclats et tes succès seront définitivement supprimés.', 0,
+  [['Oui, tout effacer', 'primary', () => { G = fresh(); ups = new Set(); achs = new Set(); heat = overheat = 0; buffs = {}; upKey = ''; save(); hideBig(); render(); }], ['Annuler', '', hideBig]]);
+$('rules-ok').onclick = () => { $('rules').classList.add('hidden'); try { localStorage.setItem('forge-rules', '1'); } catch {} };
+$('rules-btn').onclick = () => $('rules').classList.remove('hidden');
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('rules').classList.add('hidden'); hideBig(); } });
+
+// ---------- boucle ----------
+let lastTick = Date.now(), renderAcc = 0, saveAcc = 0, achAcc = 0;
+function tick() {
+  const now = Date.now(), dt = Math.min(5, (now - lastTick) / 1000);
+  lastTick = now;
+  gain(cps() * dt);
+  for (const k in buffs) buffs[k] = Math.max(0, buffs[k] - dt);
+  if (overheat > 0) { overheat -= dt; if (overheat <= 0) { overheat = 0; heat = 0; } }
+  else heat = Math.max(0, heat - 12 * dt);
+  cometT -= dt;
+  if (cometT <= 0) { spawnComet(); cometT = (45 + Math.random() * 65) * (has('radar') ? .5 : 1); }
+  achAcc += dt;
+  if (achAcc >= 1) {
+    achAcc = 0;
+    for (const [id, icon, name, , test] of ACH) if (!achs.has(id) && test()) { achs.add(id); toast(`🏅 Succès : <b>${icon} ${name}</b> (+1 % de production)`); }
+  }
+  saveAcc += dt; if (saveAcc >= 5) { saveAcc = 0; save(); }
+  renderAcc += dt;
+  if (renderAcc >= .25) { renderAcc = 0; render(); } else render(true);
+}
+
+// ---------- démarrage ----------
+load();
+let seenRules = false;
+try { seenRules = !!localStorage.getItem('forge-rules'); } catch {}
+if (seenRules) $('rules').classList.add('hidden');
+const away = (Date.now() - G.last) / 1000;
+if (G.allTime > 0 && away > 60) {
+  const rate = has('night') ? 1 : .5, capped = Math.min(away, has('night') ? 86400 : 43200);
+  const v = baseCps() * capped * rate;
+  if (v > 0) {
+    gain(v);
+    bigScreen('gold', '💤', 'Bon retour !', `Pendant ton absence (${fmtTime(away)}), tes machines ont forgé <b>${fmt(v)} ✨</b>${rate < 1 ? ' (à 50 % de leur vitesse)' : ''}.`, 0);
+  }
+}
+render();
+setInterval(tick, 50);
+window.addEventListener('beforeunload', save);
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+</script>
+</body>
+</html>

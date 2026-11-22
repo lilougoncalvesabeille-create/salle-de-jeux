@@ -1,0 +1,1585 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Échecs</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>try { if (localStorage.getItem("regles-vues:" + (location.pathname.split("/").pop() || "index.html"))) document.documentElement.classList.add("rules-seen"); } catch (e) {}</script>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #1a2129; --grid: #1f2730; --text: #e6edf3; --muted: #8b98a5;
+    --accent: #facc15; --green: #4ade80;
+  }
+  /* ---- styles du plateau ---- */
+  body {
+    --light: #e9dcc3; --dark: #a07a52;
+    --wp: #fffdf6; --ws: #2a2118; --wsw: 1.2px; --bp: #221a14; --bs: #000; --bsw: .6px;
+    --pf-w: drop-shadow(0 2px 1px rgba(0,0,0,.35)); --pf-b: drop-shadow(0 2px 1px rgba(0,0,0,.35));
+    --pfont: "Segoe UI Symbol", "DejaVu Sans", "Noto Sans Symbols2", "Apple Symbols", serif;
+  }
+  body[data-theme="foret"] { --light: #eef0d6; --dark: #6b8f4a; --wp: #fbfbef; --ws: #1d2a12; --bp: #1b2512; --bs: #000; }
+  body[data-theme="ocean"] { --light: #dde9f3; --dark: #4a76a0; --wp: #ffffff; --ws: #133049; --bp: #0d2137; --bs: #000; }
+  body[data-theme="neon"] {
+    --light: #1f2940; --dark: #111827; --wp: #67e8f9; --ws: #0e7490; --wsw: .5px; --bp: #f472b6; --bs: #9d174d; --bsw: .5px;
+    --pf-w: drop-shadow(0 0 6px #22d3ee); --pf-b: drop-shadow(0 0 6px #ec4899);
+  }
+  body[data-theme="bonbon"] { --light: #fde7f1; --dark: #e597bd; --wp: #fffaf0; --ws: #a3437a; --bp: #6d28d9; --bs: #3b0764; }
+  body[data-theme="journal"] {
+    --light: #f6f1e3; --dark: #c8bb9b; --wp: #111; --ws: transparent; --wsw: 0; --bp: #111; --bs: transparent; --bsw: 0;
+    --pf-w: none; --pf-b: none; --pfont: "Segoe UI Symbol", "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px;
+  }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; color: var(--text); background: var(--grid); }
+  button:hover { background: #2a3440; }
+  button:disabled { opacity: .4; cursor: default; }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(960px, 100%); }
+  .topbar h1 { margin: 0; font-size: 26px; letter-spacing: 2px; }
+  .topbar a { color: var(--text); text-decoration: none; background: var(--grid); padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; }
+  .topbar a:hover { background: #2a3440; }
+
+  .main { display: flex; gap: 20px; align-items: flex-start; justify-content: center; flex-wrap: wrap; width: 100%; }
+  .board-area { --sz: min(560px, calc(100vw - 92px)); display: flex; gap: 10px; align-items: center; }
+  .board-col { display: flex; flex-direction: column; gap: 8px; }
+
+  .player {
+    width: var(--sz); display: flex; align-items: center; gap: 8px; min-height: 34px;
+    padding: 4px 10px; border-radius: 8px; background: var(--panel); font-size: 14px;
+    border: 1px solid transparent;
+  }
+  .player.active { border-color: var(--accent); }
+  .player .pdot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #555; flex: none; }
+  .player .pdot.w { background: #fff; } .player .pdot.b { background: #111; }
+  .player .name { font-weight: 600; white-space: nowrap; }
+  .player .caps { display: flex; flex-wrap: wrap; font-size: 18px; line-height: 1; margin-left: 4px; overflow: hidden; }
+  .player .adv { margin-left: auto; color: var(--muted); font-weight: 600; }
+
+  .board {
+    width: var(--sz); height: var(--sz); display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+    border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    transition: transform .8s cubic-bezier(.6,0,.2,1);
+  }
+  .board.flipped { transform: rotate(180deg); }
+  .sq { position: relative; }
+  .sq.light { background: var(--light); } .sq.dark { background: var(--dark); }
+  .sq .in {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    transition: transform .8s cubic-bezier(.6,0,.2,1);
+  }
+  .board.flipped .sq .in { transform: rotate(180deg); }
+  .sq.last .in { background: rgba(250, 204, 21, .38); }
+  .sq.sel .in { background: rgba(74, 222, 128, .55); }
+  .sq.pv .in { background: rgba(96, 165, 250, .55); box-shadow: inset 0 0 0 3px #2563eb; }
+  .sq.check .in { background: radial-gradient(circle, rgba(239,68,68,.95) 0%, rgba(239,68,68,.55) 45%, transparent 75%); }
+
+  .piece {
+    font-family: var(--pfont);
+    font-size: calc(var(--sz) / 8 * .8); line-height: 1; user-select: none; pointer-events: none;
+    position: relative; z-index: 1;
+  }
+  .piece.w { color: var(--wp); -webkit-text-stroke: var(--wsw) var(--ws); filter: var(--pf-w); }
+  .piece.b { color: var(--bp); -webkit-text-stroke: var(--bsw) var(--bs); filter: var(--pf-b); }
+  .player .piece.w { color: #f5f5f5; -webkit-text-stroke: 0; filter: none; }
+  .player .piece.b { color: #0b0b0b; -webkit-text-stroke: .6px #9aa5b1; filter: none; }
+  .piece.ghost { opacity: .6; }
+  .piece.vacated { opacity: .22; }
+  .dot { position: absolute; width: 30%; height: 30%; border-radius: 50%; background: rgba(22, 101, 52, .55); z-index: 2; }
+  .ring { position: absolute; inset: 5%; border-radius: 50%; border: 5px solid rgba(22, 101, 52, .6); z-index: 2; }
+  .coord { position: absolute; font-size: 11px; font-weight: 700; z-index: 0; }
+  .coord.f { right: 4px; bottom: 2px; } .coord.r { left: 4px; top: 2px; }
+  .sq.light .coord { color: var(--dark); } .sq.dark .coord { color: var(--light); }
+
+  .tools { display: flex; flex-direction: column; gap: 8px; }
+  .tools button { width: 48px; height: 48px; font-size: 22px; display: flex; align-items: center; justify-content: center; }
+  .tools button.spin { animation: spin .8s cubic-bezier(.6,0,.2,1); }
+  @keyframes spin { to { transform: rotate(180deg); } }
+
+  .panel { width: min(340px, 100%); display: flex; flex-direction: column; gap: 12px; }
+  .box { background: var(--panel); border-radius: 12px; padding: 14px; }
+  .status { font-size: 17px; font-weight: 700; }
+  .status.over { color: var(--accent); }
+  .preview { margin-top: 6px; min-height: 40px; font-size: 14px; color: var(--muted); line-height: 1.45; }
+  .preview b { color: var(--text); }
+  .preview .warn { color: #fca5a5; } .preview .good { color: var(--green); } .preview .info { color: #93c5fd; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 10px 0 6px; }
+  .label:first-child { margin-top: 0; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; }
+  .seg button { padding: 8px 4px; font-size: 13px; background: transparent; }
+  .seg button.on { background: var(--accent); color: #2b2200; font-weight: 700; }
+  .lvl-desc { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 16px; }
+  .hint { font-size: 12px; color: var(--accent); margin-top: 8px; min-height: 0; }
+  .new { width: 100%; margin-top: 12px; padding: 11px; font-weight: 700; background: var(--green); color: #062b14; }
+  .new:hover { background: #6ee7a0; }
+  .moves { max-height: 220px; overflow: auto; margin: 0; padding: 0 0 0 30px; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .moves li { padding: 2px 0; color: var(--muted); }
+  .moves li span { display: inline-block; min-width: 70px; color: var(--text); }
+  .moves:empty::before { content: "Aucun coup joué"; color: var(--muted); margin-left: -30px; }
+
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal.hidden { display: none; }
+  .card { background: var(--panel); width: min(620px, 100%); max-height: 90vh; overflow: auto; border-radius: 14px; padding: 22px 24px; line-height: 1.5; }
+  .card h2 { margin: 0 0 6px; }
+  .card h3 { margin: 16px 0 4px; font-size: 15px; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
+  .card p, .card ul { margin: 4px 0; color: #c9d4de; font-size: 15px; }
+  .card ul { padding-left: 20px; }
+  .card .ok { display: block; margin: 18px auto 0; padding: 10px 24px; font-weight: 700; background: var(--green); color: #062b14; }
+  .promo-card { width: auto; text-align: center; }
+  .promo-choices { display: flex; gap: 8px; margin-top: 10px; }
+  .promo-choices button { width: 72px; height: 72px; background: var(--light); }
+  .promo-choices button:hover { background: #fff3d6; }
+  .promo-choices .piece { font-size: 52px; }
+
+  /* ---- choix du style ---- */
+  .themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .themes button { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 8px 4px; font-size: 12px; border: 2px solid transparent; }
+  .themes button.on { border-color: var(--accent); }
+  .mini { display: flex; border-radius: 6px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+  .mini span { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 24px; line-height: 1;
+    font-family: "Segoe UI Symbol", "DejaVu Sans", serif; }
+
+  /* ---- navigation dans la partie ---- */
+  .nav { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+  .nav button { width: 38px; height: 34px; font-size: 14px; flex: none; }
+  .nav span { flex: 1; text-align: center; font-size: 13px; color: var(--muted); }
+  .nav span.review { color: #93c5fd; font-weight: 600; }
+  .moves li span { cursor: pointer; border-radius: 4px; padding: 0 4px; }
+  .moves li span:hover { background: var(--grid); }
+  .moves li span.cur { background: var(--accent); color: #2b2200; font-weight: 700; }
+  .board-col.reviewing .board { box-shadow: 0 0 0 4px #60a5fa, 0 10px 30px rgba(0,0,0,.45); }
+  .review-tag {
+    display: none; text-align: center; font-size: 13px; font-weight: 600; color: #0b1a2e; background: #93c5fd;
+    border-radius: 6px; padding: 3px 8px; cursor: pointer;
+  }
+  .board-col.reviewing .review-tag { display: block; }
+
+  /* ---- écran de fin ---- */
+  .end-card {
+    --kc: var(--accent);
+    position: relative; width: min(560px, 100%); text-align: center; padding: 40px 28px 30px;
+    background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--kc) 22%, var(--panel)) 0%, var(--panel) 70%);
+    border: 3px solid var(--kc); border-radius: 22px; box-shadow: 0 0 60px color-mix(in srgb, var(--kc) 45%, transparent);
+    animation: pop .5s cubic-bezier(.2,1.6,.4,1);
+  }
+  .end-card.lose { --kc: #f87171; } .end-card.draw { --kc: #93c5fd; }
+  .end-emoji { font-size: 110px; line-height: 1; animation: bounce 1.6s ease-in-out infinite; }
+  .end-title { font-size: clamp(42px, 9vw, 72px); font-weight: 900; letter-spacing: 1px; color: var(--kc); margin: 14px 0 6px; line-height: 1.05; }
+  .end-reason { font-size: 20px; color: var(--text); }
+  .end-stats { font-size: 15px; color: var(--muted); margin-top: 8px; }
+  .end-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
+  .end-actions button, .end-actions a {
+    font-size: 16px; font-weight: 700; padding: 12px 20px; border-radius: 10px; text-decoration: none; color: var(--text); background: var(--grid);
+  }
+  .end-actions .primary { background: var(--kc); color: #111; }
+  .end-actions .primary:hover { filter: brightness(1.1); }
+  #end { background: rgba(0,0,0,.78); backdrop-filter: blur(3px); }
+  #confetti { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+
+  /* ---- classement Elo ---- */
+  .elo-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .elo-main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; min-width: 0; }
+  .elo-num { font-size: 32px; font-weight: 900; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .elo-rank { font-size: 13px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--grid); white-space: nowrap; }
+  .elo-prov { font-size: 11px; color: var(--muted); }
+  .elo-btn { flex: none; padding: 8px 10px; font-size: 13px; font-weight: 700; }
+  .elo-live { margin-top: 10px; padding: 6px 8px; border-radius: 8px; font-size: 15px; font-variant-numeric: tabular-nums; background: var(--bg); }
+  .elo-live b { font-size: 17px; }
+  .elo-live .d { font-weight: 700; }
+  .d.up { color: var(--green); } .d.down { color: #f87171; } .d.flat { color: var(--muted); }
+  .elo-live.flash-up { animation: flashUp .7s ease-out; }
+  .elo-live.flash-down { animation: flashDown .7s ease-out; }
+  @keyframes flashUp { from { background: rgba(74,222,128,.45); transform: scale(1.03); } to { background: var(--bg); transform: none; } }
+  @keyframes flashDown { from { background: rgba(248,113,113,.45); transform: scale(1.03); } to { background: var(--bg); transform: none; } }
+  .elo-note { color: var(--muted); font-size: 14px; }
+  .winbar { position: relative; height: 8px; margin-top: 8px; border-radius: 4px; overflow: hidden; background: #3b1d1d; }
+  .winbar i { display: block; height: 100%; width: 50%; background: var(--green); transition: width .6s ease; }
+  .winbar span { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,.35); }
+  .elo-meta { display: flex; justify-content: space-between; align-items: center; gap: 6px 10px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .elo-meta b { color: var(--text); }
+  .qtag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; color: #111; }
+  .q-ex { --qc: #4ade80; } .q-bon { --qc: #a3e635; } .q-imp { --qc: #facc15; } .q-err { --qc: #fb923c; } .q-gaf { --qc: #f87171; }
+  .qtag[class*="q-"] { background: var(--qc); }
+  .moves li span i.q { font-style: normal; font-size: 11px; font-weight: 800; margin-left: 3px; color: var(--qc); }
+  .moves li span.cur i.q { color: #2b2200; }
+  .tools #resign.hide { display: none; }
+
+  .pf-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 10px; }
+  .pf-tile { background: var(--bg); border-radius: 10px; padding: 10px; text-align: center; }
+  .pf-tile .v { font-size: 22px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+  .pf-tile .k { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
+  .pf-tile .s { font-size: 12px; color: var(--muted); }
+  #elo-chart { display: block; width: 100%; height: 170px; background: var(--bg); border-radius: 10px; }
+  .pf-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .pf-table th, .pf-table td { padding: 5px 4px; text-align: center; border-bottom: 1px solid var(--grid); }
+  .pf-table th { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  .pf-table td:first-child, .pf-table th:first-child { text-align: left; }
+  .card ul.pf-log { list-style: none; padding: 0; font-size: 13px; }
+  .pf-log li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--grid); }
+  .pf-log .r { font-weight: 800; width: 20px; text-align: center; border-radius: 4px; color: #111; }
+  .pf-log .r.w { background: var(--green); } .pf-log .r.d { background: #93c5fd; } .pf-log .r.l { background: #f87171; }
+  .pf-actions, .cf-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 18px; }
+  .pf-actions .ok { margin: 0; }
+  .pf-actions button, .cf-actions button { padding: 10px 18px; font-weight: 700; }
+  .cf-actions .danger { background: #f87171; color: #2a0707; }
+  .cf-actions .danger:hover { background: #fca5a5; }
+  .confirm-card { width: min(440px, 100%); text-align: center; }
+  .end-elo { margin-top: 14px; font-size: 22px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+  .end-elo .sub { display: block; margin-top: 4px; font-size: 15px; font-weight: 600; color: var(--muted); }
+  .end-elo:empty { display: none; }
+
+  @media (max-width: 700px) {
+    .board-area { --sz: calc(100vw - 32px); flex-direction: column-reverse; }
+    .tools { flex-direction: row; }
+  }
+</style>
+<link rel="stylesheet" href="mobile.css">
+<script src="common.js" defer></script>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Jeux</a>
+    <h1>♞&#xFE0E; ÉCHECS</h1>
+    <span style="width:70px"></span>
+  </div>
+
+  <div class="main">
+    <div class="board-area">
+      <div class="board-col">
+        <div class="player" id="p-top"></div>
+        <div class="board" id="board"></div>
+        <div class="player" id="p-bot"></div>
+        <div class="review-tag" id="review-tag">👁 Tu revois la partie — clique ici pour revenir à la position actuelle</div>
+      </div>
+      <div class="tools">
+        <button id="flip" title="Tourner le plateau de 180°">🔄</button>
+        <button id="undo" title="Annuler le dernier coup">↶</button>
+        <button id="rules-btn" title="Afficher les règles">📖</button>
+        <button id="resign" title="Abandonner la partie (compte comme une défaite)">🏳️</button>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <div class="box">
+        <div class="status" id="status"></div>
+        <div class="preview" id="preview"></div>
+      </div>
+      <div class="box" id="elo-box">
+        <div class="elo-head">
+          <div>
+            <div class="label">Classement Elo</div>
+            <div class="elo-main">
+              <span class="elo-num" id="elo-num">800</span>
+              <span class="elo-rank" id="elo-rank"></span>
+              <span class="elo-prov" id="elo-prov"></span>
+            </div>
+          </div>
+          <button class="elo-btn" id="elo-profile-btn" title="Voir ton profil Elo">📈 Profil</button>
+        </div>
+        <div class="elo-live" id="elo-live">
+          <span id="live-on"><span id="live-lbl">Elo en direct :</span> <b id="live-val">800</b> <span class="d flat" id="live-d">(±0)</span></span>
+          <span class="elo-note" id="live-note"></span>
+        </div>
+        <div class="winbar" id="winbar" title="Tes chances de gagner selon l'ordinateur"><i id="winbar-fill"></i><span></span></div>
+        <div class="elo-meta" id="elo-meta">
+          <span>🎯 Précision : <b id="elo-acc">—</b></span>
+          <span id="elo-last"></span>
+        </div>
+      </div>
+      <div class="box">
+        <div class="label">Mode</div>
+        <div class="seg" id="seg-mode">
+          <button data-v="ai">🤖 Contre l'ordi</button>
+          <button data-v="pvp">👥 À deux</button>
+        </div>
+        <div id="ai-opts">
+          <div class="label">Niveau de l'ordinateur</div>
+          <div class="seg" id="seg-level">
+            <button data-v="1">1</button><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button>
+          </div>
+          <div class="lvl-desc" id="lvl-desc"></div>
+          <div class="label">Tu joues</div>
+          <div class="seg" id="seg-color">
+            <button data-v="w">♔&#xFE0E; Blancs</button><button data-v="b">♚&#xFE0E; Noirs</button><button data-v="r">🎲 Hasard</button>
+          </div>
+        </div>
+        <div class="hint" id="hint"></div>
+        <button class="new" id="new">Nouvelle partie</button>
+      </div>
+      <div class="box">
+        <div class="label">Coups joués</div>
+        <ol class="moves" id="moves"></ol>
+        <div class="nav">
+          <button id="nav-first" title="Début de la partie (touche Origine)">⏮</button>
+          <button id="nav-prev" title="Coup précédent (flèche gauche)">◀</button>
+          <span id="nav-label"></span>
+          <button id="nav-next" title="Coup suivant (flèche droite)">▶</button>
+          <button id="nav-last" title="Position actuelle (touche Fin)">⏭</button>
+        </div>
+      </div>
+      <div class="box">
+        <div class="label">Style du plateau</div>
+        <div class="themes" id="themes"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="modal hidden" id="promo">
+    <div class="card promo-card">
+      <h2>Promotion du pion</h2>
+      <p>Choisis la pièce qui remplace ton pion :</p>
+      <div class="promo-choices" id="promo-choices"></div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="end">
+    <div class="end-card" id="end-card">
+      <div class="end-emoji" id="end-emoji"></div>
+      <div class="end-title" id="end-title"></div>
+      <div class="end-reason" id="end-reason"></div>
+      <div class="end-elo" id="end-elo"></div>
+      <div class="end-stats" id="end-stats"></div>
+      <div class="end-actions">
+        <button class="primary" id="end-again">↻ Rejouer</button>
+        <button id="end-review">👁 Revoir la partie</button>
+        <a href="index.html">☰ Menu</a>
+      </div>
+    </div>
+  </div>
+  <canvas id="confetti"></canvas>
+
+  <div class="modal hidden" id="elo-modal">
+    <div class="card">
+      <h2>📈 Profil Elo</h2>
+      <div class="pf-tiles" id="pf-tiles"></div>
+      <h3>Évolution de ton Elo</h3>
+      <canvas id="elo-chart"></canvas>
+      <h3>Résultats par niveau</h3>
+      <table class="pf-table" id="pf-table"></table>
+      <h3>Dernières parties</h3>
+      <ul class="pf-log" id="pf-log"></ul>
+      <div class="pf-actions">
+        <button class="ok" id="elo-ok">Fermer</button>
+        <button id="elo-reset">↺ Réinitialiser</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="confirm">
+    <div class="card confirm-card">
+      <h2 id="cf-title"></h2>
+      <p id="cf-text"></p>
+      <div class="cf-actions">
+        <button class="danger" id="cf-ok"></button>
+        <button id="cf-cancel">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="rules">
+    <div class="card">
+      <h2>♞&#xFE0E; Échecs — Règles</h2>
+      <h3>But du jeu</h3>
+      <p>Mettre le roi adverse <b>échec et mat</b> : il est attaqué et n'a plus aucun moyen d'échapper à la prise.</p>
+      <h3>Déplacement des pièces</h3>
+      <ul>
+        <li><b>Roi ♚&#xFE0E;</b> : une case dans n'importe quelle direction. Il ne peut jamais aller sur une case attaquée.</li>
+        <li><b>Dame ♛&#xFE0E;</b> : autant de cases qu'elle veut, en ligne droite ou en diagonale.</li>
+        <li><b>Tour ♜&#xFE0E;</b> : autant de cases qu'elle veut, en ligne droite (horizontale ou verticale).</li>
+        <li><b>Fou ♝&#xFE0E;</b> : autant de cases qu'il veut, en diagonale.</li>
+        <li><b>Cavalier ♞&#xFE0E;</b> : en « L » (2 cases puis 1 sur le côté). C'est la seule pièce qui saute par-dessus les autres.</li>
+        <li><b>Pion ♟&#xFE0E;</b> : avance d'une case (ou deux depuis sa case de départ) et prend en diagonale vers l'avant.</li>
+      </ul>
+      <h3>Coups spéciaux</h3>
+      <ul>
+        <li><b>Roque</b> : le roi va de deux cases vers une tour et la tour passe de l'autre côté du roi. Possible seulement si ni le roi ni cette tour n'ont bougé, si aucune pièce n'est entre eux et si le roi n'est pas en échec ni ne traverse une case attaquée.</li>
+        <li><b>Prise en passant</b> : si un pion adverse avance de deux cases et arrive juste à côté de ton pion, tu peux le prendre comme s'il n'avait avancé que d'une case — uniquement au coup suivant.</li>
+        <li><b>Promotion</b> : un pion qui atteint la dernière rangée se transforme en dame, tour, fou ou cavalier (au choix).</li>
+      </ul>
+      <h3>Fin de partie</h3>
+      <ul>
+        <li><b>Échec et mat</b> : le joueur maté perd.</li>
+        <li><b>Pat</b> (nulle) : le joueur qui doit jouer n'est pas en échec mais n'a aucun coup possible.</li>
+        <li><b>Nulle</b> aussi par triple répétition de la même position, après 50 coups sans prise ni mouvement de pion, ou s'il ne reste pas assez de pièces pour mater.</li>
+      </ul>
+      <h3>Utiliser l'interface</h3>
+      <ul>
+        <li>Clique sur une de tes pièces : ses coups possibles s'affichent (point = case libre, cercle = prise).</li>
+        <li><b>Aperçu du coup</b> : survole une case possible pour voir la position après le coup (pièce en transparence), sa notation et ses conséquences : prise, échec, mat, pièce en danger… Sur écran tactile, touche une première fois pour l'aperçu et une seconde fois pour jouer.</li>
+        <li>🔄 tourne le plateau de 180°, ↶ annule le dernier coup, 📖 réaffiche ces règles.</li>
+        <li><b>Revoir la partie</b> : clique sur un coup de la liste, ou utilise ⏮ ◀ ▶ ⏭ (ou les flèches du clavier) pour naviguer entre les coups. ⏭ revient à la position actuelle.</li>
+        <li><b>Style du plateau</b> : 6 styles au choix (Bois, Forêt, Océan, Néon, Bonbon, Journal), mémorisés pour la prochaine fois.</li>
+      </ul>
+      <h3>Modes et niveaux</h3>
+      <ul>
+        <li><b>À deux</b> : deux joueurs sur le même écran, chacun son tour (pense à tourner le plateau 🔄).</li>
+        <li><b>Niveau 1 · Débutant</b> : l'ordinateur joue au hasard.</li>
+        <li><b>Niveau 2 · Facile</b> : il regarde un seul coup à l'avance et se trompe souvent.</li>
+        <li><b>Niveau 3 · Moyen</b> : il calcule 2 coups à l'avance et vérifie les échanges de pièces.</li>
+        <li><b>Niveau 4 · Expert</b> : il calcule jusqu'à 6 coups à l'avance (jusqu'à 3-4 secondes de réflexion).</li>
+      </ul>
+      <h3>Classement Elo</h3>
+      <ul>
+        <li>Tu commences à <b>800 Elo</b>. Chaque partie contre l'ordinateur fait monter ou descendre ton Elo selon le résultat et la force du niveau : niveau 1 ≈ 400, niveau 2 ≈ 700, niveau 3 ≈ 1200, niveau 4 ≈ 1600 Elo.</li>
+        <li><b>Elo en direct</b> : après chaque coup, l'ordinateur évalue la position et affiche ce que tu gagnerais (ou perdrais) si la partie s'arrêtait maintenant.</li>
+        <li>Chacun de tes coups est noté : <b>Excellent</b>, <b>Bon</b>, <b>Imprécision</b>, <b>Erreur</b> ou <b>Gaffe</b>, et ta <b>précision</b> de la partie est calculée.</li>
+        <li>🏳️ <b>Abandonner</b>, ou lancer une nouvelle partie pendant une partie en cours contre l'ordinateur, compte comme une <b>défaite</b>.</li>
+        <li>Si tu changes de niveau en pleine partie, l'Elo est calculé contre le niveau le plus faible utilisé. Les parties à deux ne changent pas l'Elo.</li>
+        <li>📈 <b>Profil</b> : ton record, tes résultats par niveau et la courbe de ton Elo.</li>
+      </ul>
+      <h3>Bonus</h3>
+      <p>Pas de bonus aux échecs : seule la réflexion compte ! 🧠</p>
+      <button class="ok" id="rules-ok">C'est parti !</button>
+    </div>
+  </div>
+
+<script>
+// =====================================================================
+//  MOTEUR D'ÉCHECS
+//  Plateau = tableau de 64 cases, index 0 = a8 (en haut à gauche), 63 = h1.
+//  Pièces : majuscules = blancs (PNBRQK), minuscules = noirs (pnbrqk).
+// =====================================================================
+const FILES = 'abcdefgh';
+const colorOf = p => p ? (p < 'a' ? 'w' : 'b') : null;
+const typeOf = p => p.toLowerCase();
+const other = c => c === 'w' ? 'b' : 'w';
+const sqName = s => FILES[s & 7] + (8 - (s >> 3));
+
+const KN = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
+const KG = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+const DIAG = [[-1,-1],[-1,1],[1,-1],[1,1]];
+const ORTH = [[-1,0],[1,0],[0,-1],[0,1]];
+
+// droits de roque : 1 = blanc côté roi, 2 = blanc côté dame, 4 = noir côté roi, 8 = noir côté dame
+const CR = Array(64).fill(15);
+CR[60] = 12; CR[63] = 14; CR[56] = 13; CR[4] = 3; CR[7] = 11; CR[0] = 7;
+
+const G = { b: [], turn: 'w', castle: 15, ep: -1, half: 0, hist: [] };
+
+function loadStart() {
+  G.b = [];
+  for (const ch of 'rnbqkbnrpppppppp8888PPPPPPPPRNBQKBNR') {
+    if (/\d/.test(ch)) for (let i = 0; i < +ch; i++) G.b.push(null); else G.b.push(ch);
+  }
+  G.turn = 'w'; G.castle = 15; G.ep = -1; G.half = 0; G.hist = [];
+}
+
+function findKing(color) { return G.b.indexOf(color === 'w' ? 'K' : 'k'); }
+
+// la case sq est-elle attaquée par la couleur "by" ?
+function attacked(sq, by) {
+  const b = G.b, r = sq >> 3, c = sq & 7, w = by === 'w';
+  const pr = w ? r + 1 : r - 1, P = w ? 'P' : 'p';
+  if (pr >= 0 && pr < 8) {
+    if (c > 0 && b[pr*8 + c - 1] === P) return true;
+    if (c < 7 && b[pr*8 + c + 1] === P) return true;
+  }
+  const N = w ? 'N' : 'n', K = w ? 'K' : 'k';
+  for (const [dr, dc] of KN) { const rr = r+dr, cc = c+dc; if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && b[rr*8+cc] === N) return true; }
+  for (const [dr, dc] of KG) { const rr = r+dr, cc = c+dc; if (rr >= 0 && rr < 8 && cc >= 0 && cc < 8 && b[rr*8+cc] === K) return true; }
+  const B = w ? 'B' : 'b', R = w ? 'R' : 'r', Q = w ? 'Q' : 'q';
+  for (const [dirs, A] of [[DIAG, B], [ORTH, R]]) {
+    for (const [dr, dc] of dirs) {
+      let rr = r+dr, cc = c+dc;
+      while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+        const p = b[rr*8+cc];
+        if (p) { if (p === A || p === Q) return true; break; }
+        rr += dr; cc += dc;
+      }
+    }
+  }
+  return false;
+}
+
+const inCheck = color => attacked(findKing(color), other(color));
+
+// coups pseudo-légaux (le roi peut rester en échec, on filtre après)
+function genMoves(color, capturesOnly = false) {
+  const b = G.b, moves = [], opp = other(color);
+  const add = (from, to, flag, promo) => {
+    const cap = flag === 'ep' ? (color === 'w' ? 'p' : 'P') : b[to];
+    if (capturesOnly && !cap && !promo) return;
+    moves.push({ from, to, piece: b[from], cap: cap || null, flag: flag || null, promo: promo || null });
+  };
+  for (let sq = 0; sq < 64; sq++) {
+    const p = b[sq];
+    if (!p || colorOf(p) !== color) continue;
+    const t = typeOf(p), r = sq >> 3, c = sq & 7;
+    if (t === 'p') {
+      const d = color === 'w' ? -1 : 1, start = color === 'w' ? 6 : 1, last = color === 'w' ? 0 : 7;
+      const addP = (to, flag) => {
+        if ((to >> 3) === last) for (const q of 'qrbn') add(sq, to, flag, color === 'w' ? q.toUpperCase() : q);
+        else add(sq, to, flag);
+      };
+      const r1 = r + d;
+      if (r1 < 0 || r1 > 7) continue;
+      if (!b[r1*8 + c]) {
+        addP(r1*8 + c);
+        if (r === start && !b[(r + 2*d)*8 + c]) add(sq, (r + 2*d)*8 + c, 'double');
+      }
+      for (const dc of [-1, 1]) {
+        const cc = c + dc;
+        if (cc < 0 || cc > 7) continue;
+        const to = r1*8 + cc;
+        if (b[to] && colorOf(b[to]) === opp) addP(to);
+        else if (to === G.ep) add(sq, to, 'ep');
+      }
+    } else if (t === 'n' || t === 'k') {
+      for (const [dr, dc] of (t === 'n' ? KN : KG)) {
+        const rr = r+dr, cc = c+dc;
+        if (rr < 0 || rr > 7 || cc < 0 || cc > 7) continue;
+        const to = rr*8 + cc;
+        if (!b[to] || colorOf(b[to]) === opp) add(sq, to);
+      }
+      if (t === 'k' && !capturesOnly) {
+        if (color === 'w' && sq === 60) {
+          if (G.castle & 1 && !b[61] && !b[62] && b[63] === 'R' && !attacked(60,'b') && !attacked(61,'b') && !attacked(62,'b')) add(60, 62, 'castle');
+          if (G.castle & 2 && !b[59] && !b[58] && !b[57] && b[56] === 'R' && !attacked(60,'b') && !attacked(59,'b') && !attacked(58,'b')) add(60, 58, 'castle');
+        } else if (color === 'b' && sq === 4) {
+          if (G.castle & 4 && !b[5] && !b[6] && b[7] === 'r' && !attacked(4,'w') && !attacked(5,'w') && !attacked(6,'w')) add(4, 6, 'castle');
+          if (G.castle & 8 && !b[3] && !b[2] && !b[1] && b[0] === 'r' && !attacked(4,'w') && !attacked(3,'w') && !attacked(2,'w')) add(4, 2, 'castle');
+        }
+      }
+    } else {
+      const dirs = t === 'b' ? DIAG : t === 'r' ? ORTH : DIAG.concat(ORTH);
+      for (const [dr, dc] of dirs) {
+        let rr = r+dr, cc = c+dc;
+        while (rr >= 0 && rr < 8 && cc >= 0 && cc < 8) {
+          const to = rr*8 + cc;
+          if (b[to]) { if (colorOf(b[to]) === opp) add(sq, to); break; }
+          add(sq, to);
+          rr += dr; cc += dc;
+        }
+      }
+    }
+  }
+  return moves;
+}
+
+const ROOK_CASTLE = { 62: [63, 61], 58: [56, 59], 6: [7, 5], 2: [0, 3] };
+
+function makeMove(m) {
+  const b = G.b;
+  G.hist.push({ m, castle: G.castle, ep: G.ep, half: G.half });
+  b[m.to] = m.promo || m.piece; b[m.from] = null;
+  if (m.flag === 'ep') b[m.from - (m.from & 7) + (m.to & 7)] = null;
+  if (m.flag === 'castle') { const [rf, rt] = ROOK_CASTLE[m.to]; b[rt] = b[rf]; b[rf] = null; }
+  G.castle &= CR[m.from] & CR[m.to];
+  G.ep = m.flag === 'double' ? (m.from + m.to) / 2 : -1;
+  G.half = (typeOf(m.piece) === 'p' || m.cap) ? 0 : G.half + 1;
+  G.turn = other(G.turn);
+}
+
+function unmakeMove() {
+  const h = G.hist.pop(), m = h.m, b = G.b;
+  b[m.from] = m.piece;
+  if (m.flag === 'ep') { b[m.to] = null; b[m.from - (m.from & 7) + (m.to & 7)] = m.cap; }
+  else b[m.to] = m.cap;
+  if (m.flag === 'castle') { const [rf, rt] = ROOK_CASTLE[m.to]; b[rf] = b[rt]; b[rt] = null; }
+  G.castle = h.castle; G.ep = h.ep; G.half = h.half; G.turn = other(G.turn);
+}
+
+function legalMoves(color = G.turn) {
+  return genMoves(color).filter(m => { makeMove(m); const ok = !inCheck(color); unmakeMove(); return ok; });
+}
+
+// notation française : R roi, D dame, T tour, F fou, C cavalier
+const FR = { k: 'R', q: 'D', r: 'T', b: 'F', n: 'C', p: '' };
+function san(m, legal) {
+  const t = typeOf(m.piece);
+  let s;
+  if (m.flag === 'castle') s = (m.to & 7) === 6 ? 'O-O' : 'O-O-O';
+  else if (t === 'p') {
+    s = (m.cap ? FILES[m.from & 7] + 'x' : '') + sqName(m.to) + (m.promo ? '=' + FR[typeOf(m.promo)] : '');
+  } else {
+    const others = legal.filter(o => o.piece === m.piece && o.to === m.to && o.from !== m.from);
+    let dis = '';
+    if (others.length) {
+      const sameFile = others.some(o => (o.from & 7) === (m.from & 7));
+      const sameRank = others.some(o => (o.from >> 3) === (m.from >> 3));
+      const f = FILES[m.from & 7], rk = String(8 - (m.from >> 3));
+      dis = !sameFile ? f : !sameRank ? rk : f + rk;
+    }
+    s = FR[t] + dis + (m.cap ? 'x' : '') + sqName(m.to);
+  }
+  makeMove(m);
+  if (inCheck(G.turn)) s += legalMoves(G.turn).length ? '+' : '#';
+  unmakeMove();
+  return s;
+}
+
+// ---------------------------------------------------------------------
+//  INTELLIGENCE ARTIFICIELLE
+// ---------------------------------------------------------------------
+const VAL = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+// tables de position (point de vue des blancs, index 0 = a8)
+const PST = {
+  p: [0,0,0,0,0,0,0,0, 50,50,50,50,50,50,50,50, 10,10,20,30,30,20,10,10, 5,5,10,25,25,10,5,5,
+      0,0,0,20,20,0,0,0, 5,-5,-10,0,0,-10,-5,5, 5,10,10,-20,-20,10,10,5, 0,0,0,0,0,0,0,0],
+  n: [-50,-40,-30,-30,-30,-30,-40,-50, -40,-20,0,0,0,0,-20,-40, -30,0,10,15,15,10,0,-30, -30,5,15,20,20,15,5,-30,
+      -30,0,15,20,20,15,0,-30, -30,5,10,15,15,10,5,-30, -40,-20,0,5,5,0,-20,-40, -50,-40,-30,-30,-30,-30,-40,-50],
+  b: [-20,-10,-10,-10,-10,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,10,10,5,0,-10, -10,5,5,10,10,5,5,-10,
+      -10,0,10,10,10,10,0,-10, -10,10,10,10,10,10,10,-10, -10,5,0,0,0,0,5,-10, -20,-10,-10,-10,-10,-10,-10,-20],
+  r: [0,0,0,0,0,0,0,0, 5,10,10,10,10,10,10,5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5,
+      -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, -5,0,0,0,0,0,0,-5, 0,0,0,5,5,0,0,0],
+  q: [-20,-10,-10,-5,-5,-10,-10,-20, -10,0,0,0,0,0,0,-10, -10,0,5,5,5,5,0,-10, -5,0,5,5,5,5,0,-5,
+      0,0,5,5,5,5,0,-5, -10,5,5,5,5,5,0,-10, -10,0,5,0,0,0,0,-10, -20,-10,-10,-5,-5,-10,-10,-20],
+  k: [-30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30, -30,-40,-40,-50,-50,-40,-40,-30,
+      -20,-30,-30,-40,-40,-30,-30,-20, -10,-20,-20,-20,-20,-20,-20,-10, 20,20,0,0,0,0,20,20, 20,30,10,0,0,10,30,20],
+  kEnd: [-50,-40,-30,-20,-20,-30,-40,-50, -30,-20,-10,0,0,-10,-20,-30, -30,-10,20,30,30,20,-10,-30, -30,-10,30,40,40,30,-10,-30,
+      -30,-10,30,40,40,30,-10,-30, -30,-10,20,30,30,20,-10,-30, -30,-30,0,0,0,0,-30,-30, -50,-30,-30,-30,-30,-30,-30,-50],
+};
+
+// évaluation du point de vue des blancs
+function evaluate() {
+  const b = G.b;
+  let s = 0, heavy = 0, wk = -1, bk = -1;
+  for (let sq = 0; sq < 64; sq++) {
+    const p = b[sq];
+    if (!p) continue;
+    const t = typeOf(p), w = p < 'a';
+    if (t === 'k') { if (w) wk = sq; else bk = sq; continue; }
+    if (t !== 'p') heavy += VAL[t];
+    const v = VAL[t] + PST[t][w ? sq : sq ^ 56];
+    s += w ? v : -v;
+  }
+  const kt = heavy <= 1800 ? PST.kEnd : PST.k;
+  s += kt[wk] - kt[bk ^ 56];
+  return s;
+}
+
+const MATE = 100000, INF = 1e9;
+let nodes = 0, deadline = 0, aborted = false;
+
+function order(moves) {
+  const score = m => (m.cap ? VAL[typeOf(m.cap)] * 10 - VAL[typeOf(m.piece)] / 10 + 1000 : 0) + (m.promo ? VAL[typeOf(m.promo)] : 0);
+  return moves.sort((a, b) => score(b) - score(a));
+}
+
+function quiesce(alpha, beta, qd) {
+  if ((++nodes & 1023) === 0 && Date.now() > deadline) aborted = true;
+  if (aborted) return 0;
+  const color = G.turn;
+  const stand = evaluate() * (color === 'w' ? 1 : -1);
+  if (stand >= beta) return stand;
+  if (stand > alpha) alpha = stand;
+  if (qd >= 6) return alpha;
+  for (const m of order(genMoves(color, true))) {
+    makeMove(m);
+    if (inCheck(color)) { unmakeMove(); continue; }
+    const sc = -quiesce(-beta, -alpha, qd + 1);
+    unmakeMove();
+    if (sc >= beta) return sc;
+    if (sc > alpha) alpha = sc;
+  }
+  return alpha;
+}
+
+function negamax(depth, alpha, beta, ply) {
+  if ((++nodes & 1023) === 0 && Date.now() > deadline) aborted = true;
+  if (aborted) return 0;
+  if (depth <= 0) return quiesce(alpha, beta, 0);
+  const color = G.turn;
+  let legal = 0, best = -INF;
+  for (const m of order(genMoves(color))) {
+    makeMove(m);
+    if (inCheck(color)) { unmakeMove(); continue; }
+    legal++;
+    const sc = -negamax(depth - 1, -beta, -alpha, ply + 1);
+    unmakeMove();
+    if (aborted) return 0;
+    if (sc > best) best = sc;
+    if (sc > alpha) alpha = sc;
+    if (alpha >= beta) break;
+  }
+  if (!legal) return inCheck(color) ? -MATE + ply : 0;
+  if (G.half >= 100) return 0;
+  return best;
+}
+
+function think(level) {
+  const color = G.turn;
+  const moves = legalMoves(color);
+  if (!moves.length) return null;
+
+  if (level === 1) return moves[Math.floor(Math.random() * moves.length)];
+
+  if (level === 2) {  // regarde un seul coup, avec beaucoup d'approximation
+    let best = null, bs = -INF;
+    for (const m of moves) {
+      makeMove(m);
+      let sc = evaluate() * (color === 'w' ? 1 : -1);
+      if (inCheck(G.turn) && !legalMoves(G.turn).length) sc = MATE;
+      unmakeMove();
+      sc += Math.random() * 150;
+      if (sc > bs) { bs = sc; best = m; }
+    }
+    return best;
+  }
+
+  // niveaux 3 et 4 : alpha-bêta en approfondissement itératif
+  const maxDepth = level === 3 ? 2 : 6;
+  deadline = Date.now() + (level === 3 ? 2000 : 3500);
+  nodes = 0; aborted = false;
+  order(moves);
+  let best = moves[0];
+  for (let d = 1; d <= maxDepth; d++) {
+    moves.sort((a, b) => (b === best) - (a === best));   // le meilleur coup précédent d'abord
+    let alpha = -INF, bestThis = null, bestScore = -INF;
+    for (const m of moves) {
+      makeMove(m);
+      const sc = -negamax(d - 1, -INF, -alpha, 1);
+      unmakeMove();
+      if (aborted) break;
+      if (sc > bestScore) { bestScore = sc; bestThis = m; }
+      if (sc > alpha) alpha = sc;
+    }
+    if (aborted) break;
+    best = bestThis;
+    if (bestScore > MATE - 100) break;  // mat trouvé
+  }
+  return best;
+}
+
+// =====================================================================
+//  INTERFACE
+// =====================================================================
+const $ = id => document.getElementById(id);
+const GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟' };
+const NAMES = { k: 'roi', q: 'dame', r: 'tour', b: 'fou', n: 'cavalier', p: 'pion' };
+const LEVELS = [
+  { name: 'Débutant', desc: 'Joue complètement au hasard.' },
+  { name: 'Facile',   desc: 'Regarde un coup à l\'avance, fait des erreurs.' },
+  { name: 'Moyen',    desc: 'Calcule 2 coups à l\'avance et les échanges.' },
+  { name: 'Expert',   desc: 'Calcule jusqu\'à 6 coups (≈ 3 s de réflexion).' },
+];
+const confirmMode = matchMedia('(pointer: coarse)').matches;  // tactile : 1er toucher = aperçu, 2e = jouer
+
+const settings = { mode: 'ai', level: 2, color: 'w' };
+let mode, humanColor, flipped = false, selected = null, selMoves = [], preview = null;
+let legal = [], record = [], lastMove = null, over = null, thinking = false, gameId = 0, promoPending = null;
+let viewPly = null, startBoard = [];   // viewPly = null : position actuelle ; sinon n° du coup revu
+
+// =====================================================================
+//  CLASSEMENT ELO
+// =====================================================================
+// Force estimée de chaque niveau (voir think()) :
+//  1 = coups au hasard, 2 = 1 demi-coup + bruit (laisse souvent des pièces en prise),
+//  3 = 2 demi-coups + quiescence (tactique de base), 4 = jusqu'à 6 demi-coups en 3,5 s.
+const LEVEL_ELO = [400, 700, 1200, 1600];
+const ELO_KEY = 'echecs-elo', RULES_KEY = 'echecs-rules-seen', ELO_START = 800;
+const RANKS = [[2400, 'Grand maître'], [2200, 'Maître'], [2000, 'Candidat maître'], [1700, 'Expert'],
+               [1400, 'Joueur de club'], [1100, 'Amateur'], [800, 'Novice'], [-Infinity, 'Débutant']];
+const rankOf = e => RANKS.find(([min]) => e >= min)[1];
+const RES_FR = { w: 'Victoire', d: 'Nulle', l: 'Défaite' };
+const RES_SHORT = { w: 'V', d: 'N', l: 'D' };
+// qualité d'un coup selon la perte en centipions par rapport au meilleur coup du moteur
+const QUAL = [
+  { max: 10,       id: 'ex',  name: 'Excellent',   sym: '!' },
+  { max: 50,       id: 'bon', name: 'Bon',         sym: '✓' },
+  { max: 100,      id: 'imp', name: 'Imprécision', sym: '?!' },
+  { max: 300,      id: 'err', name: 'Erreur',      sym: '?' },
+  { max: Infinity, id: 'gaf', name: 'Gaffe',       sym: '??' },
+];
+
+function eloDefaults() {
+  return { v: 1, elo: ELO_START, peak: ELO_START, games: 0, w: 0, d: 0, l: 0,
+    levels: { 1: { w: 0, d: 0, l: 0 }, 2: { w: 0, d: 0, l: 0 }, 3: { w: 0, d: 0, l: 0 }, 4: { w: 0, d: 0, l: 0 } },
+    history: [], log: [] };
+}
+function loadElo() {
+  const st = eloDefaults();
+  try {
+    const raw = JSON.parse(localStorage.getItem(ELO_KEY) || 'null');
+    if (raw && typeof raw === 'object') {
+      for (const k in raw) if (k !== 'levels') st[k] = raw[k];
+      for (const k in st.levels) st.levels[k] = Object.assign(st.levels[k], raw.levels && raw.levels[k]);
+      for (const k of ['elo', 'peak', 'games', 'w', 'd', 'l']) if (!Number.isFinite(st[k])) st[k] = eloDefaults()[k];
+      if (!Array.isArray(st.history)) st.history = [];
+      if (!Array.isArray(st.log)) st.log = [];
+    }
+  } catch {}
+  return st;
+}
+let ELO = loadElo();
+function saveElo() { try { localStorage.setItem(ELO_KEY, JSON.stringify(ELO)); } catch {} }
+
+const kFactor = () => ELO.games < 20 ? 40 : ELO.elo >= 2000 ? 16 : 24;
+const expected = (r, opp) => 1 / (1 + Math.pow(10, (opp - r) / 400));
+const winProb = cp => 1 / (1 + Math.pow(10, -cp / 400));
+const clampCp = (s, lim = 1500) => Math.max(-lim, Math.min(lim, s));
+const fmtD = d => (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d);
+const dCls = d => d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
+// % de gain (formule type lichess) et précision d'un coup
+const winPct = cp => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
+const moveAcc = (best, played) =>
+  Math.max(0, Math.min(100, 103.1668 * Math.exp(-0.04354 * Math.max(0, winPct(best) - winPct(played))) - 3.1669));
+
+// état Elo de la partie en cours
+let game = { minLevel: 2, scored: false, eloRes: null, afterScore: false };
+let pendingAn = null, pendingEv = null;
+
+const humanMoved = () => record.some(r => colorOf(r.piece) === humanColor);
+const ratedInProgress = () => mode === 'ai' && !over && !game.scored && humanMoved();
+const ratedOpp = () => LEVEL_ELO[game.minLevel - 1];
+
+function lossPreview() {
+  const after = Math.max(100, ELO.elo + Math.round(kFactor() * (0 - expected(ELO.elo, ratedOpp()))));
+  return { before: ELO.elo, after, d: after - ELO.elo };
+}
+
+// Termine une partie classée contre l'ordinateur. score : 1 victoire, .5 nulle, 0 défaite.
+function finishRated(score, why) {
+  if (mode !== 'ai' || game.scored) return null;
+  flushAnalysis();
+  game.scored = true;
+  const lvl = game.minLevel, before = ELO.elo, oldRank = rankOf(before);
+  const delta = Math.round(kFactor() * (score - expected(before, LEVEL_ELO[lvl - 1])));
+  ELO.elo = Math.max(100, before + delta);
+  const res = score === 1 ? 'w' : score === 0 ? 'l' : 'd';
+  ELO.games++; ELO[res]++; ELO.levels[lvl][res]++;
+  const newPeak = ELO.elo > ELO.peak;
+  if (newPeak) ELO.peak = ELO.elo;
+  ELO.history.push(ELO.elo);
+  if (ELO.history.length > 100) ELO.history.splice(0, ELO.history.length - 100);
+  const acc = gameAccuracy();
+  ELO.log.unshift({ t: Date.now(), lvl, res, before, after: ELO.elo, d: ELO.elo - before, acc, why,
+                    moves: Math.ceil(record.length / 2) });
+  if (ELO.log.length > 30) ELO.log.length = 30;
+  saveElo();
+  const newRank = rankOf(ELO.elo);
+  game.eloRes = { before, after: ELO.elo, d: ELO.elo - before, acc, newPeak: newPeak && ELO.games > 1,
+                  rank: newRank !== oldRank ? newRank : null, res };
+  return game.eloRes;
+}
+
+function gameAccuracy() {
+  const accs = record.filter(r => r.an).map(r => r.an.acc);
+  return accs.length ? Math.round(accs.reduce((a, b) => a + b, 0) / accs.length) : null;
+}
+
+// ---- analyse des coups (réutilise le moteur : negamax + quiescence) ----
+// Renvoie le score du coup joué et du meilleur coup (point de vue du joueur au trait), ou null si trop long.
+function scoreMoves(m, depth, ms) {
+  deadline = Date.now() + ms; nodes = 0; aborted = false;
+  const moves = order(legalMoves(G.turn));
+  makeMove(m);
+  const played = -negamax(depth - 1, -INF, INF, 1);
+  unmakeMove();
+  if (aborted) return null;
+  let best = played;
+  for (const o of moves) {
+    if (o.from === m.from && o.to === m.to && o.promo === m.promo) continue;
+    makeMove(o);
+    const sc = -negamax(depth - 1, -INF, -best, 1);
+    unmakeMove();
+    if (aborted) return null;
+    if (sc > best) best = sc;
+  }
+  return { best, played };
+}
+
+// analyse le dernier coup du joueur (appelé juste après, avant que l'ordinateur réfléchisse)
+function flushAnalysis() {
+  const p = pendingAn; pendingAn = null;
+  if (!p || p.id !== gameId || record.length - 1 !== p.idx) return false;
+  const rec = record[p.idx];
+  unmakeMove();                                   // revient à la position avant le coup
+  const r = scoreMoves(p.m, 2, 700) || scoreMoves(p.m, 1, 300);
+  makeMove(p.m);
+  if (!r) return false;
+  const best = clampCp(r.best), played = clampCp(r.played);
+  const cpl = Math.max(0, clampCp(r.best, 1000) - clampCp(r.played, 1000));
+  const q = QUAL.findIndex(x => cpl <= x.max);
+  rec.an = { q, cpl, acc: moveAcc(best, played) };
+  rec.ev = played;                                // évaluation après le coup, du point de vue du joueur
+  return true;
+}
+
+// évaluation rapide après un coup de l'ordinateur (c'est au joueur de jouer)
+function flushQuickEval() {
+  const p = pendingEv; pendingEv = null;
+  if (!p || p.id !== gameId || record.length - 1 !== p.idx || over || G.turn !== humanColor) return false;
+  let sc = null;
+  for (const [d, ms] of [[2, 250], [1, 150]]) {
+    deadline = Date.now() + ms; nodes = 0; aborted = false;
+    const v = negamax(d, -INF, INF, 0);
+    if (!aborted) { sc = v; break; }
+  }
+  if (sc === null) sc = evaluate() * (humanColor === 'w' ? 1 : -1);
+  record[p.idx].ev = clampCp(sc);
+  return true;
+}
+
+// Elo « en direct » : ce que le joueur gagnerait si la partie s'arrêtait maintenant
+function liveInfo() {
+  const R = ELO.elo, E = expected(R, ratedOpp()), K = kFactor();
+  let cp = 0, n = 0;
+  for (const r of record) {
+    if (r.ev !== undefined) cp = r.ev;
+    if (colorOf(r.piece) === humanColor) n++;
+  }
+  const P = winProb(cp);
+  const w = Math.min(0.9, 0.3 + n * 0.03);         // l'évaluation compte de plus en plus au fil de la partie
+  const S = w * P + (1 - w) * E;
+  const delta = Math.max(100, R + Math.round(K * (S - E))) - R;
+  return { R, P, delta };
+}
+
+let liveAnim = { shown: null, target: null, raf: 0 };
+function setLive(target, delta) {
+  const valEl = $('live-val'), dEl = $('live-d');
+  dEl.textContent = `(${fmtD(delta)})`;
+  dEl.className = 'd ' + dCls(delta);
+  valEl.className = 'd ' + dCls(delta);
+  if (liveAnim.target === target) return;
+  const prev = liveAnim.target, from = liveAnim.shown === null ? target : liveAnim.shown;
+  liveAnim.target = target;
+  cancelAnimationFrame(liveAnim.raf);
+  if (prev !== null && prev !== target) {
+    const box = $('elo-live');
+    box.classList.remove('flash-up', 'flash-down'); void box.offsetWidth;
+    box.classList.add(target > prev ? 'flash-up' : 'flash-down');
+  }
+  const t0 = performance.now();
+  const step = t => {
+    const k = Math.min(1, (t - t0) / 600), e = 1 - Math.pow(1 - k, 3);
+    liveAnim.shown = Math.round(from + (target - from) * e);
+    valEl.textContent = liveAnim.shown;
+    if (k < 1) liveAnim.raf = requestAnimationFrame(step);
+  };
+  valEl.textContent = from;
+  liveAnim.raf = requestAnimationFrame(step);
+}
+
+function renderElo() {
+  $('elo-num').textContent = ELO.elo;
+  $('elo-rank').textContent = rankOf(ELO.elo);
+  $('elo-prov').textContent = ELO.games < 20 ? `provisoire · ${ELO.games}/20 parties` : `${ELO.games} parties`;
+  const on = $('live-on'), note = $('live-note'), bar = $('winbar'), meta = $('elo-meta');
+  if (mode !== 'ai') {
+    on.style.display = 'none'; bar.style.display = meta.style.display = 'none';
+    note.textContent = '👥 Partie à deux : l\'Elo ne change pas.';
+    return;
+  }
+  bar.style.display = meta.style.display = '';
+  const acc = gameAccuracy();
+  $('elo-acc').textContent = acc === null ? '—' : acc + ' %';
+  const lastAn = [...record].reverse().find(r => colorOf(r.piece) === humanColor);
+  $('elo-last').innerHTML = lastAn && lastAn.an
+    ? `Dernier coup : <span class="qtag q-${QUAL[lastAn.an.q].id}">${QUAL[lastAn.an.q].name}</span>`
+    : lastAn ? 'Analyse…' : '';
+  const L = liveInfo();
+  $('winbar-fill').style.width = (L.P * 100).toFixed(1) + '%';
+  if (game.scored) {
+    on.style.display = 'none';
+    const r = game.eloRes;
+    note.innerHTML = game.afterScore || !r ? 'Partie déjà comptée au classement.'
+      : `Partie comptée : ${r.before} → <b>${r.after}</b> <span class="d ${dCls(r.d)}">(${fmtD(r.d)})</span>`;
+    return;
+  }
+  on.style.display = ''; note.textContent = '';
+  $('live-lbl').textContent = game.minLevel !== settings.level
+    ? `Elo en direct (vs niv. ${game.minLevel}) :` : 'Elo en direct :';
+  setLive(L.R + L.delta, L.delta);
+}
+
+// ---- fenêtre de confirmation ----
+let confirmCb = null;
+function askConfirm(title, html, okLabel, cb) {
+  $('cf-title').textContent = title;
+  $('cf-text').innerHTML = html;
+  $('cf-ok').textContent = okLabel;
+  confirmCb = cb;
+  $('confirm').classList.remove('hidden');
+}
+function closeConfirm() { confirmCb = null; $('confirm').classList.add('hidden'); }
+
+// ---- profil Elo ----
+function openProfile() {
+  const pct = (w, d, n) => n ? Math.round((w + d / 2) / n * 100) + ' %' : '—';
+  const accs = ELO.log.filter(g => g.acc !== null && g.acc !== undefined).slice(0, 20).map(g => g.acc);
+  const avgAcc = accs.length ? Math.round(accs.reduce((a, b) => a + b, 0) / accs.length) + ' %' : '—';
+  $('pf-tiles').innerHTML = [
+    ['Elo actuel', ELO.elo, rankOf(ELO.elo) + (ELO.games < 20 ? ' (provisoire)' : '')],
+    ['Record', ELO.peak, rankOf(ELO.peak)],
+    ['Parties', ELO.games, `${ELO.w} V · ${ELO.d} N · ${ELO.l} D`],
+    ['Précision moy.', avgAcc, accs.length ? `sur ${accs.length} partie${accs.length > 1 ? 's' : ''}` : 'aucune partie'],
+  ].map(([k, v, s]) => `<div class="pf-tile"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+  let rows = '<tr><th>Niveau</th><th>Elo</th><th>V</th><th>N</th><th>D</th><th>Score</th></tr>';
+  for (let i = 1; i <= 4; i++) {
+    const s = ELO.levels[i], n = s.w + s.d + s.l;
+    rows += `<tr><td>${i} · ${LEVELS[i - 1].name}</td><td>${LEVEL_ELO[i - 1]}</td><td>${s.w}</td><td>${s.d}</td><td>${s.l}</td><td>${pct(s.w, s.d, n)}</td></tr>`;
+  }
+  rows += `<tr><td><b>Total</b></td><td></td><td><b>${ELO.w}</b></td><td><b>${ELO.d}</b></td><td><b>${ELO.l}</b></td><td><b>${pct(ELO.w, ELO.d, ELO.games)}</b></td></tr>`;
+  $('pf-table').innerHTML = rows;
+  const WHY = { abandon: ' · abandon', nouvelle: ' · partie quittée' };
+  $('pf-log').innerHTML = ELO.log.slice(0, 12).map(g => {
+    const date = new Date(g.t).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+    return `<li><span class="r ${g.res}" title="${RES_FR[g.res]}">${RES_SHORT[g.res]}</span>
+      <span>${date} · niv. ${g.lvl}${WHY[g.why] || ''}</span>
+      <span>${g.before} → <b>${g.after}</b> <span class="d ${dCls(g.d)}">(${fmtD(g.d)})</span></span>
+      ${g.acc !== null && g.acc !== undefined ? `<span>🎯 ${g.acc} %</span>` : ''}</li>`;
+  }).join('') || '<li>Aucune partie classée pour l\'instant : joue contre l\'ordinateur !</li>';
+  $('elo-modal').classList.remove('hidden');
+  drawEloChart();
+}
+
+function drawEloChart() {
+  const cv = $('elo-chart'), dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || 300, H = cv.clientHeight || 170;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  const c = cv.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.clearRect(0, 0, W, H);
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue('--accent').trim() || '#facc15';
+  const muted = css.getPropertyValue('--muted').trim() || '#8b98a5';
+  const pts = ELO.games <= ELO.history.length ? [ELO_START, ...ELO.history] : ELO.history.slice();
+  c.font = '12px system-ui, sans-serif';
+  if (pts.length < 2) {
+    c.fillStyle = muted; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('Joue une partie contre l\'ordinateur', W / 2, H / 2 - 9);
+    c.fillText('pour voir ta courbe Elo.', W / 2, H / 2 + 9);
+    return;
+  }
+  let lo = Math.min(...pts), hi = Math.max(...pts);
+  lo = Math.floor((lo - 20) / 50) * 50; hi = Math.ceil((hi + 20) / 50) * 50;
+  const L = 40, R = 12, T = 12, B = 22;
+  const x = i => L + (W - L - R) * i / (pts.length - 1);
+  const y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  // grille
+  c.strokeStyle = 'rgba(139,152,165,.18)'; c.lineWidth = 1;
+  c.fillStyle = muted; c.textAlign = 'right'; c.textBaseline = 'middle';
+  const step = Math.max(50, Math.ceil((hi - lo) / 4 / 50) * 50);
+  for (let v = lo; v <= hi; v += step) {
+    c.beginPath(); c.moveTo(L, y(v) + .5); c.lineTo(W - R, y(v) + .5); c.stroke();
+    c.fillText(v, L - 6, y(v));
+  }
+  c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  c.fillText('début', L, H - 5);
+  c.textAlign = 'right';
+  c.fillText(`${pts.length - 1} partie${pts.length > 2 ? 's' : ''}`, W - R, H - 5);
+  // aire + courbe
+  const grad = c.createLinearGradient(0, T, 0, H - B);
+  grad.addColorStop(0, 'rgba(250,204,21,.35)'); grad.addColorStop(1, 'rgba(250,204,21,0)');
+  c.beginPath(); c.moveTo(x(0), H - B);
+  pts.forEach((v, i) => c.lineTo(x(i), y(v)));
+  c.lineTo(x(pts.length - 1), H - B); c.closePath();
+  c.fillStyle = grad; c.fill();
+  c.beginPath();
+  pts.forEach((v, i) => i ? c.lineTo(x(i), y(v)) : c.moveTo(x(i), y(v)));
+  c.strokeStyle = accent; c.lineWidth = 2.5; c.lineJoin = 'round'; c.stroke();
+  const lx = x(pts.length - 1), ly = y(pts[pts.length - 1]);
+  c.beginPath(); c.arc(lx, ly, 4.5, 0, Math.PI * 2); c.fillStyle = accent; c.fill();
+}
+
+// ---- styles du plateau ----
+const OUTLINE = { k: '♔', q: '♕', r: '♖', b: '♗', n: '♘', p: '♙' };
+const THEMES = [
+  { id: 'bois',    name: 'Bois',    l: '#e9dcc3', d: '#a07a52', w: '#fffdf6', b: '#221a14' },
+  { id: 'foret',   name: 'Forêt',   l: '#eef0d6', d: '#6b8f4a', w: '#fbfbef', b: '#1b2512' },
+  { id: 'ocean',   name: 'Océan',   l: '#dde9f3', d: '#4a76a0', w: '#ffffff', b: '#0d2137' },
+  { id: 'neon',    name: 'Néon',    l: '#1f2940', d: '#111827', w: '#67e8f9', b: '#f472b6' },
+  { id: 'bonbon',  name: 'Bonbon',  l: '#fde7f1', d: '#e597bd', w: '#fffaf0', b: '#6d28d9' },
+  { id: 'journal', name: 'Journal', l: '#f6f1e3', d: '#c8bb9b', w: '#111111', b: '#111111', outline: true },
+];
+let theme = THEMES[0];
+try { theme = THEMES.find(t => t.id === localStorage.getItem('chess-theme')) || theme; } catch {}
+
+function setTheme(t) {
+  theme = t;
+  document.body.dataset.theme = t.id;
+  try { localStorage.setItem('chess-theme', t.id); } catch {}
+  $('themes').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.id === t.id));
+  if (mode) render();
+}
+$('themes').innerHTML = THEMES.map(t => `
+  <button data-id="${t.id}" title="Style ${t.name}">
+    <span class="mini"><span style="background:${t.l};color:${t.b}">♞&#xFE0E;</span><span style="background:${t.d};color:${t.w}">${t.outline ? '♘' : '♞'}&#xFE0E;</span></span>
+    ${t.name}
+  </button>`).join('');
+$('themes').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) setTheme(THEMES.find(t => t.id === b.dataset.id));
+});
+
+const pieceHTML = (p, extra = '') => {
+  const t = typeOf(p), w = colorOf(p) === 'w';
+  const g = theme.outline && w && !extra.includes('cap') ? OUTLINE[t] : GLYPH[t];
+  return `<span class="piece ${colorOf(p)} ${extra}">${g}&#xFE0E;</span>`;
+};
+
+// ---- plateau ----
+const boardEl = $('board');
+const squares = [];
+for (let sq = 0; sq < 64; sq++) {
+  const el = document.createElement('div');
+  el.innerHTML = '<div class="in"></div>';
+  el.addEventListener('click', () => onSquare(sq));
+  el.addEventListener('mouseenter', () => {
+    if (confirmMode) return;
+    const np = selMoves.some(m => m.to === sq) ? sq : null;
+    if (np !== preview) { preview = np; render(); }
+  });
+  boardEl.appendChild(el);
+  squares.push(el);
+}
+boardEl.addEventListener('mouseleave', () => { if (!confirmMode && preview !== null) { preview = null; render(); } });
+
+const humanTurn = () => mode === 'pvp' || G.turn === humanColor;
+
+function onSquare(sq) {
+  if (viewPly !== null || over || thinking || !humanTurn()) return;
+  if (selected !== null) {
+    const ms = selMoves.filter(m => m.to === sq);
+    if (ms.length) {
+      if (confirmMode && preview !== sq) { preview = sq; render(); return; }
+      if (ms[0].promo) return askPromo(ms);
+      return play(ms[0]);
+    }
+  }
+  const p = G.b[sq];
+  if (p && colorOf(p) === G.turn && sq !== selected) {
+    selected = sq; selMoves = legal.filter(m => m.from === sq);
+  } else { selected = null; selMoves = []; }
+  preview = null;
+  render();
+}
+
+function askPromo(ms) {
+  promoPending = ms;
+  const col = colorOf(ms[0].piece);
+  $('promo-choices').innerHTML = 'qrbn'.split('').map(t =>
+    `<button data-t="${t}" title="${NAMES[t]}">${pieceHTML(col === 'w' ? t.toUpperCase() : t)}</button>`).join('');
+  $('promo').classList.remove('hidden');
+}
+$('promo-choices').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn || !promoPending) return;
+  const m = promoPending.find(m => typeOf(m.promo) === btn.dataset.t);
+  promoPending = null;
+  $('promo').classList.add('hidden');
+  play(m);
+});
+
+const posKey = () => G.b.map(p => p || '.').join('') + G.turn + G.castle + G.ep;
+
+function play(m) {
+  const s = san(m, legal);
+  makeMove(m);
+  const check = inCheck(G.turn) ? findKing(G.turn) : -1;
+  record.push({ san: s, key: posKey(), board: G.b.slice(), from: m.from, to: m.to, piece: m.piece, cap: m.cap, check });
+  lastMove = { from: m.from, to: m.to };
+  selected = null; selMoves = []; preview = null; viewPly = null;
+  legal = legalMoves(G.turn);
+  // Elo : analyse du coup du joueur / évaluation après le coup de l'ordinateur (en différé, l'écran d'abord)
+  if (mode === 'ai' && !game.scored) {
+    const job = { id: gameId, idx: record.length - 1, m };
+    if (colorOf(m.piece) === humanColor) pendingAn = job; else pendingEv = job;
+  }
+  checkEnd();
+  if (over && mode === 'ai') finishRated(over.kind === 'win' ? 1 : over.kind === 'draw' ? .5 : 0, 'normal');
+  render();
+  if (over) { const id = gameId; setTimeout(() => { if (id === gameId && over) showEnd(); }, 700); }
+  if (pendingAn || pendingEv) setTimeout(() => {
+    const changed = flushAnalysis() | flushQuickEval();
+    if (changed) { renderElo(); renderMoves(); }
+  }, 30);
+  maybeAI();
+}
+
+function checkEnd() {
+  over = null;
+  let reason = null, winner = null;
+  const side = G.turn === 'w' ? 'Blancs' : 'Noirs';
+  if (!legal.length) {
+    if (inCheck(G.turn)) { winner = other(G.turn); reason = 'Échec et mat'; }
+    else reason = `Pat : les ${side} n'ont plus aucun coup possible`;
+  } else if (G.half >= 100) reason = '50 coups sans prise ni mouvement de pion';
+  else if (record.filter(r => r.key === record[record.length - 1].key).length >= 3) reason = 'La même position est apparue 3 fois';
+  else {
+    const rest = G.b.filter(p => p && typeOf(p) !== 'k');
+    if (rest.length === 0 || (rest.length === 1 && 'bn'.includes(typeOf(rest[0]))))
+      reason = 'Il ne reste pas assez de pièces pour mater';
+  }
+  if (!reason) return;
+  if (!winner) over = { kind: 'draw', emoji: '🤝', title: 'Partie nulle', reason };
+  else if (mode === 'ai') {
+    over = winner === humanColor
+      ? { kind: 'win', emoji: '🏆', title: 'Victoire !', reason: `Échec et mat : tu as battu l'ordinateur (${LEVELS[settings.level - 1].name})` }
+      : { kind: 'lose', emoji: '🤖', title: 'Défaite…', reason: `Échec et mat : l'ordinateur (${LEVELS[settings.level - 1].name}) a gagné` };
+  } else {
+    over = { kind: 'win', emoji: winner === 'w' ? '👑' : '🏆', title: `Victoire des ${winner === 'w' ? 'Blancs' : 'Noirs'} !`, reason: 'Échec et mat' };
+  }
+}
+
+// ---- écran de fin ----
+function showEnd() {
+  $('end-card').className = 'end-card ' + over.kind;
+  $('end-emoji').textContent = over.emoji;
+  $('end-title').textContent = over.title;
+  $('end-reason').textContent = over.reason;
+  const n = Math.ceil(record.length / 2);
+  $('end-stats').textContent = `Partie en ${n} coup${n > 1 ? 's' : ''} · ${mode === 'ai' ? 'contre l\'ordinateur' : 'à deux joueurs'}`;
+  const r = game.eloRes, endElo = $('end-elo');
+  if (mode !== 'ai') endElo.innerHTML = '';
+  else if (!r || game.afterScore) {
+    const acc = gameAccuracy();
+    endElo.innerHTML = `<span class="sub">Partie déjà comptée au classement${acc !== null ? ` · 🎯 Précision : ${acc} %` : ''}</span>`;
+  } else {
+    const extra = [r.acc !== null ? `🎯 Précision : ${r.acc} %` : null, r.newPeak ? '🏅 Nouveau record !' : null,
+                   r.rank ? `Nouveau titre : ${r.rank}` : null].filter(Boolean).join(' · ');
+    endElo.innerHTML = `Elo : ${r.before} → ${r.after} <span class="d ${dCls(r.d)}">(${fmtD(r.d)})</span>`
+      + (extra ? `<span class="sub">${extra}</span>` : '');
+  }
+  $('end').classList.remove('hidden');
+  if (over.kind === 'win') confetti();
+}
+function hideEnd() { $('end').classList.add('hidden'); stopConfetti(); }
+
+let confettiRAF = null;
+function confetti() {
+  const cv = $('confetti'), cx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight;
+  const colors = ['#facc15', '#4ade80', '#60a5fa', '#f472b6', '#fb923c', '#c084fc'];
+  const parts = Array.from({ length: 180 }, () => ({
+    x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * .6,
+    vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 3, r: Math.random() * 6, vr: (Math.random() - .5) * .3,
+    s: 7 + Math.random() * 7, c: colors[Math.floor(Math.random() * colors.length)],
+  }));
+  const t0 = performance.now();
+  cancelAnimationFrame(confettiRAF);
+  const frame = t => {
+    cx.clearRect(0, 0, cv.width, cv.height);
+    for (const p of parts) {
+      p.x += p.vx; p.y += p.vy; p.vy += .03; p.r += p.vr;
+      cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c;
+      cx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); cx.restore();
+    }
+    if (t - t0 < 5000) confettiRAF = requestAnimationFrame(frame);
+    else cx.clearRect(0, 0, cv.width, cv.height);
+  };
+  confettiRAF = requestAnimationFrame(frame);
+}
+function stopConfetti() {
+  cancelAnimationFrame(confettiRAF);
+  const cv = $('confetti'); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+}
+
+// ---- navigation dans la partie ----
+const curPly = () => viewPly === null ? record.length : viewPly;
+function goPly(p) {
+  viewPly = (p === null || p >= record.length) ? null : Math.max(0, p);
+  selected = null; selMoves = []; preview = null;
+  render();
+}
+
+function maybeAI() {
+  if (over || mode !== 'ai' || G.turn === humanColor) return;
+  thinking = true;
+  render();
+  const id = gameId;
+  setTimeout(() => {           // laisse le temps à l'écran de s'afficher avant de calculer
+    if (id !== gameId) return;
+    flushAnalysis();             // au cas où l'analyse du coup du joueur n'a pas encore tourné
+    const m = think(settings.level);
+    thinking = false;
+    if (id === gameId && m) play(m);
+  }, 350);
+}
+
+function undo() {
+  if (thinking || !record.length) return;
+  let n = mode === 'ai' && G.turn === humanColor ? 2 : 1;
+  n = Math.min(n, record.length);
+  for (let i = 0; i < n; i++) { unmakeMove(); record.pop(); }
+  pendingAn = pendingEv = null;
+  if (game.scored) game.afterScore = true;      // partie déjà comptée : la suite n'est plus classée
+  const h = G.hist[G.hist.length - 1];
+  lastMove = h ? { from: h.m.from, to: h.m.to } : null;
+  selected = null; selMoves = []; preview = null; over = null; viewPly = null;
+  hideEnd();
+  legal = legalMoves(G.turn);
+  render();
+  maybeAI();
+}
+
+function newGame() {
+  gameId++;
+  thinking = false;
+  loadStart();
+  startBoard = G.b.slice();
+  viewPly = null;
+  hideEnd();
+  mode = settings.mode;
+  humanColor = settings.color === 'r' ? (Math.random() < .5 ? 'w' : 'b') : settings.color;
+  flipped = mode === 'ai' && humanColor === 'b';
+  selected = null; selMoves = []; preview = null; over = null; record = []; lastMove = null;
+  game = { minLevel: settings.level, scored: false, eloRes: null, afterScore: false };
+  pendingAn = pendingEv = null;
+  legal = legalMoves('w');
+  $('hint').textContent = '';
+  render();
+  maybeAI();
+}
+
+// ---- aperçu d'un coup ----
+function previewInfo(m) {
+  const s = san(m, legal), me = G.turn;
+  makeMove(m);
+  const after = G.b.slice(), opp = G.turn;
+  const check = inCheck(opp), mate = check && !legalMoves(opp).length;
+  const land = m.flag === 'castle' ? -1 : m.to;
+  const danger = land >= 0 && attacked(land, opp);
+  const defended = land >= 0 && attacked(land, me);
+  unmakeMove();
+
+  const parts = [`Aperçu : <b>${s}</b> — ${NAMES[typeOf(m.piece)]} ${sqName(m.from)} → ${sqName(m.to)}`];
+  if (m.flag === 'castle') parts.push('<span class="info">Roque</span>');
+  if (m.flag === 'ep') parts.push('<span class="good">Prise en passant</span>');
+  const ART = { p: 'un pion', n: 'un cavalier', b: 'un fou', r: 'une tour', q: 'la dame' };
+  if (m.cap) parts.push(`<span class="good">Prend ${ART[typeOf(m.cap)]} (+${VAL[typeOf(m.cap)] / 100})</span>`);
+  if (m.promo) parts.push('<span class="good">Promotion</span>');
+  if (mate) parts.push('<span class="good">Échec et mat !</span>');
+  else if (check) parts.push('<span class="info">Échec au roi !</span>');
+  if (danger && typeOf(m.piece) !== 'k') {
+    parts.push(defended
+      ? '<span class="info">⚔ Case attaquée, mais ta pièce est protégée</span>'
+      : '<span class="warn">⚠ Pièce non protégée : elle peut être prise</span>');
+  }
+  return { after, text: parts.join('<br>') };
+}
+
+// ---- affichage ----
+function render() {
+  const reviewing = viewPly !== null;
+  const rec = reviewing && viewPly > 0 ? record[viewPly - 1] : null;
+  let view = reviewing ? (rec ? rec.board : startBoard) : G.b, info = null;
+  const pm = !reviewing && preview !== null ? selMoves.find(m => m.to === preview && (!m.promo || typeOf(m.promo) === 'q')) : null;
+  if (pm) { info = previewInfo(pm); view = info.after; }
+  const kingSq = reviewing ? (rec ? rec.check : -1) : inCheck(G.turn) ? findKing(G.turn) : -1;
+  const lm = reviewing ? rec : lastMove;
+  document.querySelector('.board-col').classList.toggle('reviewing', reviewing);
+  const targets = new Map(selMoves.map(m => [m.to, m]));
+
+  boardEl.classList.toggle('flipped', flipped);
+  squares.forEach((el, sq) => {
+    const r = sq >> 3, c = sq & 7;
+    const cls = ['sq', (r + c) % 2 ? 'dark' : 'light'];
+    if (sq === selected) cls.push('sel');
+    if (lm && (sq === lm.from || sq === lm.to) && !pm) cls.push('last');
+    if (sq === kingSq && !pm) cls.push('check');
+    if (pm && sq === preview) cls.push('pv');
+    el.className = cls.join(' ');
+
+    let html = '';
+    const p = view[sq], orig = reviewing ? view[sq] : G.b[sq];
+    if (p) html += pieceHTML(p, pm && p !== orig ? 'ghost' : '');
+    else if (pm && orig) html += pieceHTML(orig, 'vacated');
+    if (targets.has(sq) && sq !== preview) {
+      const t = targets.get(sq);
+      html += (G.b[sq] || t.flag === 'ep') ? '<span class="ring"></span>' : '<span class="dot"></span>';
+    }
+    if (r === (flipped ? 0 : 7)) html += `<span class="coord f">${FILES[c]}</span>`;
+    if (c === (flipped ? 7 : 0)) html += `<span class="coord r">${8 - r}</span>`;
+    el.firstChild.innerHTML = html;
+  });
+
+  // statut
+  const st = $('status');
+  st.classList.toggle('over', !!over && !reviewing);
+  if (reviewing) st.textContent = viewPly === 0 ? '👁 Revue : position de départ' : `👁 Revue : coup ${Math.ceil(viewPly / 2)}${viewPly % 2 ? '' : '…'} ${rec.san}`;
+  else if (over) st.textContent = `${over.emoji} ${over.title} — ${over.reason}`;
+  else if (thinking) st.textContent = '🤖 L\'ordinateur réfléchit…';
+  else {
+    const who = mode === 'ai' ? (G.turn === humanColor ? 'À toi de jouer' : 'Tour de l\'ordinateur')
+                              : `Trait aux ${G.turn === 'w' ? 'Blancs' : 'Noirs'}`;
+    st.textContent = who + (inCheck(G.turn) ? ' — Échec !' : '');
+  }
+  $('preview').innerHTML = reviewing ? 'Tu regardes une position passée. Utilise ◀ ▶ pour naviguer, ⏭ pour revenir à la partie.'
+    : info ? info.text
+    : selected !== null ? (selMoves.length
+        ? (confirmMode ? 'Touche une case pour voir l\'aperçu du coup, puis touche-la encore pour jouer.'
+                       : 'Survole une case marquée pour voir l\'aperçu du coup, clique pour le jouer.')
+        : 'Cette pièce ne peut pas bouger.')
+    : over ? 'Clique sur « Nouvelle partie » pour rejouer.' : 'Clique sur une de tes pièces pour voir ses coups.';
+
+  renderPlayers(view);
+  renderMoves();
+  renderControls();
+  renderElo();
+  $('undo').disabled = thinking || !record.length;
+  $('resign').classList.toggle('hide', mode !== 'ai');
+  $('resign').disabled = mode !== 'ai' || !!over || game.scored;
+  const ply = curPly();
+  $('nav-first').disabled = $('nav-prev').disabled = ply === 0;
+  $('nav-next').disabled = $('nav-last').disabled = !reviewing;
+  const navLabel = $('nav-label');
+  navLabel.classList.toggle('review', reviewing);
+  navLabel.textContent = record.length ? `${reviewing ? 'Revue' : 'Coup'} ${ply} / ${record.length}` : '—';
+}
+
+function material(col, board) {
+  return board.reduce((t, p) => t + (p && colorOf(p) === col ? VAL[typeOf(p)] : 0), 0);
+}
+
+function renderPlayers(board) {
+  const topCol = flipped ? 'w' : 'b';
+  const played = record.slice(0, curPly());
+  for (const [id, col] of [['p-top', topCol], ['p-bot', other(topCol)]]) {
+    const caps = played.filter(r => colorOf(r.piece) === col && r.cap).map(r => r.cap)
+      .sort((a, b) => VAL[typeOf(b)] - VAL[typeOf(a)]);
+    const adv = Math.round((material(col, board) - material(other(col), board)) / 100);
+    const name = mode === 'pvp' ? (col === 'w' ? 'Blancs' : 'Noirs')
+      : col === humanColor ? `Toi · ${ELO.elo}` : `Ordinateur · ${LEVELS[settings.level - 1].name} · ${LEVEL_ELO[settings.level - 1]}`;
+    const el = $(id);
+    el.classList.toggle('active', !over && viewPly === null && G.turn === col);
+    el.innerHTML = `<span class="pdot ${col}"></span><span class="name">${name}</span>
+      <span class="caps">${caps.map(p => pieceHTML(p)).join('')}</span>
+      <span class="adv">${adv > 0 ? '+' + adv : ''}</span>`;
+    el.querySelectorAll('.caps .piece').forEach(s => s.style.fontSize = '18px');
+  }
+}
+
+function renderMoves() {
+  const cur = curPly();
+  const tag = r => r.an ? `<i class="q q-${QUAL[r.an.q].id}" title="${QUAL[r.an.q].name}">${QUAL[r.an.q].sym}</i>` : '';
+  const cell = i => record[i] ? `<span data-ply="${i + 1}" class="${cur === i + 1 ? 'cur' : ''}">${record[i].san}${tag(record[i])}</span>` : '';
+  let html = '';
+  for (let i = 0; i < record.length; i += 2) html += `<li>${cell(i)}${cell(i + 1)}</li>`;
+  const ol = $('moves');
+  ol.innerHTML = html;
+  const curEl = ol.querySelector('.cur');
+  if (viewPly === null) ol.scrollTop = ol.scrollHeight;
+  else if (curEl) curEl.scrollIntoView({ block: 'nearest' });
+}
+
+$('moves').addEventListener('click', e => {
+  const s = e.target.closest('span[data-ply]');
+  if (s) goPly(+s.dataset.ply);
+});
+$('nav-first').onclick = () => goPly(0);
+$('nav-prev').onclick = () => goPly(curPly() - 1);
+$('nav-next').onclick = () => goPly(curPly() + 1);
+$('nav-last').onclick = () => goPly(null);
+$('review-tag').onclick = () => goPly(null);
+$('end-again').onclick = () => newGame();
+$('end-review').onclick = () => { hideEnd(); goPly(0); };
+
+function renderControls() {
+  for (const [id, key] of [['seg-mode', 'mode'], ['seg-level', 'level'], ['seg-color', 'color']]) {
+    $(id).querySelectorAll('button').forEach(b => b.classList.toggle('on', String(settings[key]) === b.dataset.v));
+  }
+  $('seg-level').querySelectorAll('button').forEach((b, i) => b.title = LEVELS[i].name);
+  $('lvl-desc').textContent = `${LEVELS[settings.level - 1].name} (≈ ${LEVEL_ELO[settings.level - 1]} Elo) — ${LEVELS[settings.level - 1].desc}`;
+  $('ai-opts').style.display = settings.mode === 'ai' ? '' : 'none';
+}
+
+// ---- contrôles ----
+function bindSeg(id, key, parse = v => v) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b || thinking) return;
+    settings[key] = parse(b.dataset.v);
+    if (key === 'level') {                                 // le niveau change tout de suite
+      if (mode === 'ai' && !record.length) game.minLevel = settings.level;
+      else if (mode === 'ai' && !over && !game.scored) {
+        game.minLevel = Math.min(game.minLevel, settings.level);   // Elo calculé contre le niveau le plus faible joué
+        if (settings.level > game.minLevel)
+          $('hint').textContent = `Niveau changé en cours de partie : l'Elo sera calculé contre le niveau ${game.minLevel} (${LEVEL_ELO[game.minLevel - 1]}).`;
+      }
+      render(); return;
+    }
+    if (!record.length) newGame();                         // partie pas commencée : on applique
+    else { $('hint').textContent = '↻ Changement appliqué à la prochaine partie.'; render(); }
+  });
+}
+bindSeg('seg-mode', 'mode');
+bindSeg('seg-level', 'level', Number);
+bindSeg('seg-color', 'color');
+
+$('new').onclick = () => {
+  if (thinking) return;
+  if (!ratedInProgress()) return newGame();
+  const p = lossPreview();
+  askConfirm('Nouvelle partie ?',
+    `La partie en cours contre l'ordinateur n'est pas finie : recommencer maintenant compte comme une <b>défaite</b>.<br>
+     Elo : ${p.before} → <b>${p.after}</b> <span class="d ${dCls(p.d)}">(${fmtD(p.d)})</span>`,
+    'Recommencer quand même', () => {
+      if (thinking || !ratedInProgress()) return newGame();
+      const r = finishRated(0, 'nouvelle');
+      newGame();
+      $('hint').textContent = `Partie précédente comptée comme une défaite : Elo ${r.before} → ${r.after} (${fmtD(r.d)}).`;
+    });
+};
+$('resign').onclick = () => {
+  if (mode !== 'ai' || over || game.scored) return;
+  const p = lossPreview();
+  askConfirm('Abandonner la partie ?',
+    `Abandonner compte comme une <b>défaite</b> contre l'ordinateur (niveau ${game.minLevel}).<br>
+     Elo : ${p.before} → <b>${p.after}</b> <span class="d ${dCls(p.d)}">(${fmtD(p.d)})</span>`,
+    '🏳️ Abandonner', () => {
+      if (mode !== 'ai' || over || game.scored) return;
+      finishRated(0, 'abandon');
+      gameId++;                                   // annule la réflexion de l'ordinateur éventuellement prévue
+      thinking = false; selected = null; selMoves = []; preview = null; viewPly = null;
+      over = { kind: 'lose', emoji: '🏳️', title: 'Abandon', reason: `Tu as abandonné contre l'ordinateur (${LEVELS[settings.level - 1].name})` };
+      render();
+      showEnd();
+    });
+};
+$('cf-ok').onclick = () => { const cb = confirmCb; closeConfirm(); if (cb) cb(); };
+$('cf-cancel').onclick = closeConfirm;
+$('elo-profile-btn').onclick = openProfile;
+$('elo-ok').onclick = () => $('elo-modal').classList.add('hidden');
+$('elo-reset').onclick = () => askConfirm('Réinitialiser le classement ?',
+  'Ton Elo repart à <b>800</b> et tout ton historique (record, résultats, courbe) est effacé. Impossible d\'annuler.',
+  'Réinitialiser', () => { ELO = eloDefaults(); saveElo(); liveAnim.target = null; openProfile(); render(); });
+addEventListener('resize', () => { if (isOpen('elo-modal')) drawEloChart(); });
+$('undo').onclick = undo;
+$('flip').onclick = () => {
+  flipped = !flipped;
+  const b = $('flip'); b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin');
+  render();
+};
+$('rules-btn').onclick = () => $('rules').classList.remove('hidden');
+$('rules-ok').onclick = () => $('rules').classList.add('hidden');
+const isOpen = id => !$(id).classList.contains('hidden');
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (isOpen('confirm')) { closeConfirm(); return; }
+    $('rules').classList.add('hidden'); $('elo-modal').classList.add('hidden'); hideEnd(); return;
+  }
+  if (isOpen('rules') || isOpen('end') || isOpen('promo') || isOpen('elo-modal') || isOpen('confirm')) return;
+  const nav = { ArrowLeft: () => goPly(curPly() - 1), ArrowRight: () => goPly(curPly() + 1), Home: () => goPly(0), End: () => goPly(null) }[e.key];
+  if (nav && record.length) { e.preventDefault(); nav(); }
+});
+
+setTheme(theme);
+newGame();
+
+// Règles : ouvertes automatiquement seulement la toute première fois que le jeu est ouvert
+// (compatible avec la clé « regles-vues:… » gérée par common.js).
+try {
+  const page = location.pathname.split('/').pop() || 'index.html';
+  if (!localStorage.getItem(RULES_KEY) && !localStorage.getItem('regles-vues:' + page)) {
+    $('rules').classList.remove('hidden');
+    localStorage.setItem(RULES_KEY, '1');
+  }
+} catch {}
+</script>
+</body>
+</html>

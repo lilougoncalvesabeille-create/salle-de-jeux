@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Salle de jeux</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<style>
+  :root { --bg: #0f1419; --panel: #1a2129; --grid: #1f2730; --text: #e6edf3; --muted: #8b98a5; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 24px 16px;
+  }
+  h1 { margin: 0; font-size: 34px; letter-spacing: 3px; text-align: center; }
+  .sub { margin: -16px 0 0; color: var(--muted); text-align: center; }
+  .games { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; width: min(900px, 100%); }
+  .game {
+    display: flex; flex-direction: column; gap: 10px; padding: 24px; border-radius: 16px;
+    background: var(--panel); color: inherit; text-decoration: none; border: 2px solid transparent;
+    transition: transform .15s, border-color .15s;
+  }
+  .game:hover, .game:focus-visible { transform: translateY(-4px); border-color: var(--c); outline: none; }
+  .icon {
+    font-size: 64px; height: 110px; display: flex; align-items: center; justify-content: center;
+    border-radius: 12px; background: var(--grid);
+  }
+  .game h2 { margin: 4px 0 0; font-size: 22px; }
+  .game p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tags span { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--grid); color: var(--c); }
+  .play { margin-top: auto; font-weight: 700; color: var(--c); }
+  .save-btn { font: inherit; font-weight: 600; font-size: 14px; color: var(--text); background: var(--grid); border: 0; border-radius: 10px; padding: 10px 16px; cursor: pointer; }
+  .save-btn:hover { background: #2a3440; }
+  .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(5,8,12,.75); padding: 16px; }
+  .modal.hidden { display: none; }
+  .card { background: var(--panel); border-radius: 16px; padding: 20px; width: min(460px, 100%); max-height: 100%; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .card h2 { margin: 0; font-size: 20px; }
+  .card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+  .card h3 { margin: 6px 0 0; font-size: 15px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .row button, .row label { flex: 1; text-align: center; }
+  .primary { background: #4ade80 !important; color: #062b14 !important; }
+  .card textarea { width: 100%; min-height: 80px; resize: vertical; background: var(--bg); color: var(--text); border: 1px solid #2a3440; border-radius: 10px; padding: 10px; font: 12px ui-monospace, monospace; }
+  #save-msg { min-height: 1.2em; font-weight: 600; color: #4ade80; }
+  #save-msg.err { color: #f87171; }
+  @media (max-width: 600px) { h1 { font-size: 26px; letter-spacing: 2px; margin-top: 34px; } }
+</style>
+<link rel="stylesheet" href="mobile.css">
+<script src="common.js" defer></script>
+</head>
+<body>
+  <h1>🎮 SALLE DE JEUX</h1>
+  <p class="sub">Choisis un jeu pour commencer</p>
+  <div class="games">
+    <a class="game" href="snake.html" style="--c:#4ade80">
+      <div class="icon">🐍</div>
+      <h2>Snake</h2>
+      <p>Mange les pommes, grandis, accélère… et attrape les bonus sans te mordre la queue.</p>
+      <div class="tags"><span>1 joueur</span><span>6 bonus</span><span>Arcade</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="echecs.html" style="--c:#facc15">
+      <div class="icon">♞&#xFE0E;</div>
+      <h2>Échecs</h2>
+      <p>Affronte l'ordinateur sur 4 niveaux ou joue à deux, avec un aperçu de chaque coup.</p>
+      <div class="tags"><span>1 ou 2 joueurs</span><span>4 niveaux</span><span>Stratégie</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="shooter.html" style="--c:#22d3ee">
+      <div class="icon">🚀</div>
+      <h2>Astro Shooter</h2>
+      <p>Traverse 4 mondes et leurs boss, débloque des vaisseaux et des améliorations, puis tiens bon dans le mode sans fin.</p>
+      <div class="tags"><span>1 joueur</span><span>20 niveaux</span><span>5 vaisseaux</span><span>Sans fin</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="casse-briques.html" style="--c:#38bdf8">
+      <div class="icon">🧱</div>
+      <h2>Casse-briques cosmique</h2>
+      <p>Casse les murs de briques de 4 mondes cosmiques, affronte des boss qui ripostent et améliore ta raquette avec des cristaux.</p>
+      <div class="tags"><span>1 joueur</span><span>Boss</span><span>Améliorations</span><span>Sans fin</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="survivant.html" style="--c:#f97316">
+      <div class="icon">⚔️</div>
+      <h2>Survivant de l'arène</h2>
+      <p>Survis aux hordes de monstres dans 4 zones, choisis tes armes à chaque niveau gagné et terrasse des boss redoutables !</p>
+      <div class="tags"><span>1 joueur</span><span>Action</span><span>Survie</span><span>Boss</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="defense.html" style="--c:#2dd4bf">
+      <div class="icon">🛰️</div>
+      <h2>Bastion stellaire</h2>
+      <p>Défends ta base contre des vagues d'envahisseurs : place et améliore 6 types de tourelles et affronte 4 boss.</p>
+      <div class="tags"><span>1 joueur</span><span>Tower defense</span><span>Boss</span><span>Sans fin</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="pong.html" style="--c:#f472b6">
+      <div class="icon">🏓</div>
+      <h2>Pong</h2>
+      <p>Renvoie la balle qui accélère sans cesse et marque derrière la raquette adverse.</p>
+      <div class="tags"><span>1 ou 2 joueurs</span><span>3 niveaux</span><span>Réflexes</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="morpion.html" style="--c:#60a5fa">
+      <div class="icon">❌⭕</div>
+      <h2>Morpion</h2>
+      <p>Le grand classique : aligne 3 symboles avant ton adversaire. Sauras-tu tenir le nul face à l'ordi imbattable ?</p>
+      <div class="tags"><span>1 ou 2 joueurs</span><span>3 niveaux</span><span>Classique</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="puissance4.html" style="--c:#ef4444">
+      <div class="icon">🔴🟡</div>
+      <h2>Puissance 4</h2>
+      <p>Lâche tes jetons dans la grille et aligne-en 4 avant ton adversaire.</p>
+      <div class="tags"><span>1 ou 2 joueurs</span><span>3 niveaux</span><span>Stratégie</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="morpion-extreme.html" style="--c:#fb923c">
+      <div class="icon">🔥</div>
+      <h2>Morpion extrême</h2>
+      <p>9 morpions dans un morpion géant : chaque coup décide où ton adversaire devra jouer.</p>
+      <div class="tags"><span>1 ou 2 joueurs</span><span>3 niveaux</span><span>Casse-tête</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+    <a class="game" href="clicker.html" style="--c:#a78bfa">
+      <div class="icon">✨</div>
+      <h2>Forge stellaire</h2>
+      <p>Clique sur l'étoile, construis des machines, attrape les comètes et déclenche des supernovas pour devenir toujours plus fort.</p>
+      <div class="tags"><span>Idle / Clicker</span><span>Sauvegarde auto</span><span>Prestige</span></div>
+      <span class="play">Jouer →</span>
+    </a>
+  </div>
+  <button class="save-btn" id="save-open">💾 Mes sauvegardes</button>
+
+  <div class="modal hidden" id="save-modal">
+    <div class="card">
+      <h2>💾 Mes sauvegardes</h2>
+      <p>Ta progression est gardée sur cet appareil et ne s'efface pas quand les jeux sont mis à jour. Pour la garder en lieu sûr ou la passer sur un autre appareil, exporte-la ici.</p>
+      <h3>Exporter</h3>
+      <div class="row">
+        <button class="save-btn primary" id="save-dl">⬇️ Télécharger un fichier</button>
+        <button class="save-btn" id="save-copy">📋 Copier le code</button>
+      </div>
+      <h3>Importer</h3>
+      <div class="row">
+        <label class="save-btn" for="save-file">📂 Choisir un fichier</label>
+        <input type="file" id="save-file" accept=".json,application/json,text/plain" hidden>
+      </div>
+      <textarea id="save-code" placeholder="…ou colle ici un code de sauvegarde"></textarea>
+      <div class="row"><button class="save-btn" id="save-paste">✅ Importer ce code</button></div>
+      <div id="save-msg"></div>
+      <div class="row"><button class="save-btn" id="save-close">Fermer</button></div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const $ = id => document.getElementById(id);
+    const msg = (t, err) => { $('save-msg').textContent = t; $('save-msg').className = err ? 'err' : ''; };
+    const dump = () => {
+      const data = {};
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); data[k] = localStorage.getItem(k); }
+      return JSON.stringify({ app: 'salle-de-jeux', v: 1, date: new Date().toISOString(), data });
+    };
+    const toCode = json => btoa(unescape(encodeURIComponent(json)));
+    const fromCode = t => { t = t.trim(); try { return JSON.parse(t); } catch (e) { return JSON.parse(decodeURIComponent(escape(atob(t)))); } };
+    function load(obj) {
+      if (!obj || obj.app !== 'salle-de-jeux' || typeof obj.data !== 'object') throw new Error('bad');
+      const n = Object.keys(obj.data).length;
+      if (!confirm('Remplacer ta progression actuelle par cette sauvegarde (' + n + ' éléments) ?')) return;
+      for (const k in obj.data) localStorage.setItem(k, obj.data[k]);
+      if (window.SalleSave) window.SalleSave.backup();
+      msg('Sauvegarde importée ✔');
+    }
+    $('save-open').onclick = () => { msg(''); $('save-modal').classList.remove('hidden'); };
+    $('save-close').onclick = () => $('save-modal').classList.add('hidden');
+    $('save-modal').onclick = e => { if (e.target.id === 'save-modal') $('save-modal').classList.add('hidden'); };
+    $('save-dl').onclick = () => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([dump()], { type: 'application/json' }));
+      a.download = 'salle-de-jeux-sauvegarde-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      msg('Fichier téléchargé ✔');
+    };
+    $('save-copy').onclick = async () => {
+      const code = toCode(dump());
+      $('save-code').value = code;
+      try { await navigator.clipboard.writeText(code); msg('Code copié ✔ Garde-le dans tes notes.'); }
+      catch (e) { $('save-code').select(); msg('Sélectionne le code ci-dessus et copie-le.'); }
+    };
+    $('save-file').onchange = async e => {
+      const f = e.target.files[0]; if (!f) return;
+      try { load(fromCode(await f.text())); } catch (err) { msg("Ce fichier n'est pas une sauvegarde valide.", true); }
+      e.target.value = '';
+    };
+    $('save-paste').onclick = () => {
+      try { load(fromCode($('save-code').value)); } catch (err) { msg("Ce code n'est pas valide.", true); }
+    };
+  })();
+  </script>
+</body>
+</html>

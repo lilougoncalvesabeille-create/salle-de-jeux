@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Pong</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>try { if (localStorage.getItem("regles-vues:" + (location.pathname.split("/").pop() || "index.html"))) document.documentElement.classList.add("rules-seen"); } catch (e) {}</script>
+<style>
+  :root { --bg: #0f1419; --panel: #1a2129; --grid: #1f2730; --text: #e6edf3; --muted: #8b98a5; --accent: #facc15; --green: #4ade80; --p1: #22d3ee; --p2: #f472b6; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px;
+    --gw: min(860px, calc(100vw - 32px), calc((100vh - 140px) * 1.6));
+  }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 8px; color: var(--text); background: var(--grid); }
+  button:hover { background: #2a3440; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: var(--gw); }
+  .topbar h1 { margin: 0; font-size: 24px; letter-spacing: 2px; }
+  .topbar a, .topbar button { font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none; background: var(--grid); padding: 8px 12px; border-radius: 8px; }
+  .wrap { position: relative; width: var(--gw); aspect-ratio: 8 / 5; }
+  canvas#game { width: 100%; height: 100%; display: block; border-radius: 12px; background: #0a0f1a; touch-action: none; }
+  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(7,11,20,.82); border-radius: 12px; padding: 16px; }
+  .overlay.hidden { display: none; }
+  .setup { background: var(--panel); border-radius: 14px; padding: 18px 20px; width: min(420px, 100%); }
+  .setup h2 { margin: 0 0 4px; text-align: center; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 12px 0 6px; }
+  .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--bg); padding: 4px; border-radius: 10px; }
+  .seg button { padding: 8px 4px; font-size: 13px; background: transparent; }
+  .seg button.on { background: var(--accent); color: #2b2200; font-weight: 700; }
+  .go { width: 100%; margin-top: 16px; padding: 12px; font-weight: 700; font-size: 16px; background: var(--green); color: #062b14; }
+  .go:hover { background: #6ee7a0; }
+  .help { color: var(--muted); font-size: 13px; text-align: center; }
+  .rotate-hint { display: none; color: var(--accent); font-size: 13px; text-align: center; margin: 0; }
+  @media (max-width: 600px) and (orientation: portrait) {
+    .overlay { position: fixed; inset: 0; z-index: 20; border-radius: 0; overflow-y: auto; }
+    .rotate-hint { display: block; }
+  }
+
+  .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal.hidden { display: none; }
+  .card { background: var(--panel); width: min(600px, 100%); max-height: 90vh; overflow: auto; border-radius: 14px; padding: 22px 24px; line-height: 1.5; }
+  .card h2 { margin: 0 0 6px; }
+  .card h3 { margin: 16px 0 4px; font-size: 15px; color: var(--p1); text-transform: uppercase; letter-spacing: 1px; }
+  .card p, .card ul { margin: 4px 0; color: #c9d4de; font-size: 15px; }
+  .card ul { padding-left: 20px; }
+  .card .ok { display: block; margin: 18px auto 0; padding: 10px 24px; font-weight: 700; background: var(--green); color: #062b14; }
+  .end-card {
+    --kc: var(--accent); position: relative; width: min(520px, 100%); text-align: center; padding: 40px 28px 30px;
+    background: radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--kc) 22%, var(--panel)) 0%, var(--panel) 70%);
+    border: 3px solid var(--kc); border-radius: 22px; box-shadow: 0 0 60px color-mix(in srgb, var(--kc) 45%, transparent);
+    animation: pop .5s cubic-bezier(.2,1.6,.4,1);
+  }
+  .end-card.lose { --kc: #f87171; } .end-card.p1 { --kc: var(--p1); } .end-card.p2 { --kc: var(--p2); }
+  .end-emoji { font-size: 100px; line-height: 1; animation: bounce 1.6s ease-in-out infinite; }
+  .end-title { font-size: clamp(40px, 9vw, 66px); font-weight: 900; color: var(--kc); margin: 14px 0 6px; line-height: 1.05; }
+  .end-sub { font-size: 30px; font-weight: 800; }
+  .end-stats { font-size: 15px; color: var(--muted); margin-top: 8px; }
+  .end-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
+  .end-actions button, .end-actions a { font-size: 16px; font-weight: 700; padding: 12px 20px; border-radius: 10px; text-decoration: none; color: var(--text); background: var(--grid); }
+  .end-actions .primary { background: var(--kc); color: #111; }
+  #end { background: rgba(0,0,0,.78); backdrop-filter: blur(3px); }
+  #confetti { position: fixed; inset: 0; z-index: 30; pointer-events: none; }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+</style>
+<link rel="stylesheet" href="mobile.css">
+<script src="common.js" defer></script>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Jeux</a>
+    <h1>🏓 PONG</h1>
+    <button id="pause-btn" class="hidden" title="Pause (Espace)">⏸ Pause</button>
+    <button id="rules-btn">📖 Règles</button>
+  </div>
+  <div class="wrap">
+    <canvas id="game" width="800" height="500"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="setup" id="setup">
+        <h2 id="setup-title">Nouvelle partie</h2>
+        <div class="label">Mode</div>
+        <div class="seg" id="seg-mode"><button data-v="ai">🤖 Contre l'ordi</button><button data-v="pvp">👥 À deux</button></div>
+        <div id="lvl-box">
+          <div class="label">Niveau de l'ordinateur</div>
+          <div class="seg" id="seg-level"><button data-v="1">Facile</button><button data-v="2">Moyen</button><button data-v="3">Difficile</button></div>
+        </div>
+        <div class="label">Points pour gagner</div>
+        <div class="seg" id="seg-target"><button data-v="5">5</button><button data-v="7">7</button><button data-v="11">11</button></div>
+        <button class="go" id="go">Jouer</button>
+      </div>
+    </div>
+  </div>
+  <p class="rotate-hint">📱↻ Tourne ton téléphone pour un terrain plus grand</p>
+  <div class="help" id="help"></div>
+
+  <div class="modal hidden" id="end">
+    <div class="end-card" id="end-card">
+      <div class="end-emoji" id="end-emoji"></div>
+      <div class="end-title" id="end-title"></div>
+      <div class="end-sub" id="end-sub"></div>
+      <div class="end-stats" id="end-stats"></div>
+      <div class="end-actions">
+        <button class="primary" id="end-again">↻ Rejouer</button>
+        <button id="end-setup">⚙ Changer de mode</button>
+        <a href="index.html">☰ Menu</a>
+      </div>
+    </div>
+  </div>
+  <canvas id="confetti"></canvas>
+
+  <div class="modal" id="rules">
+    <div class="card">
+      <h2>🏓 Pong — Règles</h2>
+      <h3>But du jeu</h3>
+      <p>Renvoie la balle avec ta raquette et fais-la passer derrière celle de l'adversaire. Le premier à atteindre le nombre de points choisi (5, 7 ou 11) gagne.</p>
+      <h3>Règles</h3>
+      <ul>
+        <li>La balle rebondit sur les bords du haut et du bas.</li>
+        <li>Si la balle sort de ton côté, l'adversaire marque un point.</li>
+        <li>L'angle du renvoi dépend de l'endroit où la balle touche ta raquette : au centre elle repart tout droit, sur les bords elle part en biais.</li>
+        <li>La balle accélère à chaque renvoi : les échanges deviennent de plus en plus rapides !</li>
+        <li>Après chaque point, la balle est servie vers le joueur qui vient de perdre le point.</li>
+      </ul>
+      <h3>Modes</h3>
+      <ul>
+        <li><b>Contre l'ordi</b> : 3 niveaux. Facile réagit lentement et se trompe souvent, Moyen suit bien la balle, Difficile calcule où elle va arriver.</li>
+        <li><b>À deux</b> : sur le même clavier ou le même écran tactile.</li>
+      </ul>
+      <h3>Commandes</h3>
+      <ul>
+        <li><b>Contre l'ordi</b> : Z/S, W/S ou les flèches ↑ ↓, ou bien la souris (la raquette suit le curseur).</li>
+        <li><b>À deux</b> : joueur gauche Z/S (ou W/S), joueur droit flèches ↑ ↓. Sur tactile, chacun glisse le doigt sur sa moitié d'écran.</li>
+        <li>Espace pour mettre en pause.</li>
+      </ul>
+      <h3>Bonus</h3>
+      <p>Pas de bonus : seulement tes réflexes ! ⚡</p>
+      <button class="ok" id="rules-ok">C'est parti !</button>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const W = 800, H = 500, PH = 90, PW = 12, BR = 8;
+const cv = $('game'), ctx = cv.getContext('2d');
+// react = position de la balle (en fraction de largeur) à partir de laquelle l'ordi commence à la suivre
+const LEVELS = {
+  1: { speed: 230, err: 45, react: .5, predict: false, name: 'Facile' },
+  2: { speed: 320, err: 30, react: .35, predict: false, name: 'Moyen' },
+  3: { speed: 420, err: 26, react: .25, predict: true, name: 'Difficile' },
+};
+
+const settings = { mode: 'ai', level: 2, target: 7 };
+let state = 'setup', p1, p2, ball, score, serveT, particles = [], trail = [], rally, longest, aiAim = 0;
+const keys = {};
+
+function reset() {
+  p1 = { y: H / 2 - PH / 2, target: null }; p2 = { y: H / 2 - PH / 2, target: null };
+  score = [0, 0]; longest = 0; particles = []; trail = [];
+  serve(Math.random() < .5 ? -1 : 1);
+}
+function serve(dir) {
+  ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, dir, speed: 380 };
+  serveT = 1; rally = 0; trail = [];
+  aiAim = (Math.random() - .5) * 2 * LEVELS[settings.level].err;
+}
+function launch() {
+  const a = (Math.random() - .5) * .8;
+  ball.vx = Math.cos(a) * ball.speed * ball.dir; ball.vy = Math.sin(a) * ball.speed;
+}
+
+function predictY() {   // où la balle va arriver côté droit, en tenant compte des rebonds
+  let x = ball.x, y = ball.y, vx = ball.vx, vy = ball.vy;
+  if (vx <= 0) return H / 2;
+  const t = (W - 36 - x) / vx;
+  y += vy * t;
+  const span = H - 2 * BR;
+  y = ((y - BR) % (2 * span) + 2 * span) % (2 * span);
+  return BR + (y > span ? 2 * span - y : y);
+}
+
+function movePaddle(p, dir, dt, speed = 480) { p.y = Math.max(0, Math.min(H - PH, p.y + dir * speed * dt)); }
+function followTarget(p, ty, dt, speed) {
+  const c = p.y + PH / 2, d = ty - c;
+  if (Math.abs(d) > 2) movePaddle(p, Math.sign(d), Math.min(1, Math.abs(d) / (speed * dt)) * dt, speed);
+}
+
+function update(dt) {
+  // joueur 1
+  const up1 = settings.mode === 'ai' ? (keys.w || keys.up) : keys.w, dn1 = settings.mode === 'ai' ? (keys.s || keys.down) : keys.s;
+  if (up1 || dn1) { p1.target = null; movePaddle(p1, (dn1 ? 1 : 0) - (up1 ? 1 : 0), dt); }
+  else if (p1.target !== null) followTarget(p1, p1.target, dt, 900);
+  // joueur 2 ou ordinateur
+  if (settings.mode === 'pvp') {
+    if (keys.up || keys.down) { p2.target = null; movePaddle(p2, (keys.down ? 1 : 0) - (keys.up ? 1 : 0), dt); }
+    else if (p2.target !== null) followTarget(p2, p2.target, dt, 900);
+  } else {
+    const L = LEVELS[settings.level];
+    let ty = H / 2;
+    if (ball.vx > 0 && ball.x > W * L.react) ty = (L.predict ? predictY() : ball.y) + aiAim;
+    followTarget(p2, ty, dt, L.speed);
+  }
+
+  if (serveT > 0) { serveT -= dt; if (serveT <= 0) launch(); return; }
+
+  ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+  trail.push({ x: ball.x, y: ball.y }); if (trail.length > 12) trail.shift();
+  if (ball.y < BR) { ball.y = BR; ball.vy *= -1; }
+  if (ball.y > H - BR) { ball.y = H - BR; ball.vy *= -1; }
+
+  // raquettes
+  const hitPaddle = (p, px, side) => {
+    if (ball.y < p.y - BR || ball.y > p.y + PH + BR) return false;
+    if (side < 0 ? (ball.x - BR <= px + PW && ball.x > px && ball.vx < 0) : (ball.x + BR >= px && ball.x < px + PW && ball.vx > 0)) {
+      const rel = Math.max(-1, Math.min(1, (ball.y - (p.y + PH / 2)) / (PH / 2)));
+      ball.speed = Math.min(950, ball.speed * 1.05);
+      const a = rel * Math.PI / 3;
+      ball.vx = Math.cos(a) * ball.speed * -side; ball.vy = Math.sin(a) * ball.speed;
+      ball.x = side < 0 ? px + PW + BR : px - BR;
+      burst(ball.x, ball.y, side < 0 ? '#22d3ee' : '#f472b6');
+      rally++; longest = Math.max(longest, rally);
+      const L = LEVELS[settings.level];
+      aiAim = (Math.random() - .5) * 2 * L.err * (ball.speed / 380);   // plus la balle va vite, plus l'ordi se trompe
+      return true;
+    }
+    return false;
+  };
+  hitPaddle(p1, 24, -1) || hitPaddle(p2, W - 24 - PW, 1);
+
+  if (ball.x < -20 || ball.x > W + 20) {
+    const scorer = ball.x < 0 ? 1 : 0;
+    score[scorer]++;
+    burst(ball.x < 0 ? 0 : W, ball.y, scorer ? '#f472b6' : '#22d3ee', 40);
+    if (score[scorer] >= settings.target) return gameOver(scorer);
+    serve(scorer ? -1 : 1);
+  }
+}
+
+function burst(x, y, color, n = 14) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = 60 + Math.random() * 220;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .5 + Math.random() * .4, color });
+  }
+}
+
+function draw(dt) {
+  ctx.fillStyle = '#0a0f1a'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#1f2a3c';
+  for (let y = 10; y < H; y += 30) ctx.fillRect(W / 2 - 2, y, 4, 16);
+  if (!ball) return;
+  ctx.font = 'bold 72px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = 'rgba(34,211,238,.35)'; ctx.fillText(score[0], W / 2 - 80, 24);
+  ctx.fillStyle = 'rgba(244,114,182,.35)'; ctx.fillText(score[1], W / 2 + 80, 24);
+  // raquettes
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = '#22d3ee'; ctx.fillStyle = '#22d3ee'; roundRect(24, p1.y, PW, PH, 6);
+  ctx.shadowColor = '#f472b6'; ctx.fillStyle = '#f472b6'; roundRect(W - 24 - PW, p2.y, PW, PH, 6);
+  ctx.shadowBlur = 0;
+  // traînée + balle
+  trail.forEach((t, i) => { ctx.globalAlpha = i / trail.length * .35; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(t.x, t.y, BR * i / trail.length, 0, Math.PI * 2); ctx.fill(); });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 20; ctx.shadowColor = '#fff'; ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, BR, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+  for (const p of particles) {
+    if (state === 'play') { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+    ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color; ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+  particles = particles.filter(p => p.life > 0);
+  if (state === 'play' && serveT > 0) {
+    ctx.fillStyle = '#e6edf3'; ctx.font = 'bold 22px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+    ctx.fillText('Prêt…', W / 2, H / 2 + 50);
+  }
+  if (state === 'pause') {
+    ctx.fillStyle = 'rgba(7,11,20,.6)'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 44px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+    ctx.fillText('PAUSE', W / 2, H / 2 - 10);
+    ctx.font = '18px system-ui, sans-serif'; ctx.fillStyle = '#8b98a5'; ctx.fillText('Espace pour reprendre', W / 2, H / 2 + 30);
+  }
+}
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.fill();
+}
+
+let lastT = 0;
+function frame(t) {
+  const dt = Math.min(.033, (t - lastT) / 1000 || 0); lastT = t;
+  if (state === 'play') update(dt);
+  draw(dt);
+  requestAnimationFrame(frame);
+}
+
+// ---------- fin de partie ----------
+function gameOver(winner) {
+  state = 'over';
+  const ai = settings.mode === 'ai';
+  let kind, emoji, title;
+  if (ai) { kind = winner === 0 ? 'win' : 'lose'; emoji = winner === 0 ? '🏆' : '🤖'; title = winner === 0 ? 'Victoire !' : 'Défaite…'; }
+  else { kind = winner === 0 ? 'p1' : 'p2'; emoji = '🏆'; title = winner === 0 ? 'Joueur gauche gagne !' : 'Joueur droit gagne !'; }
+  setTimeout(() => {
+    $('end-card').className = 'end-card ' + kind;
+    $('end-emoji').textContent = emoji; $('end-title').textContent = title;
+    $('end-sub').textContent = `${score[0]} – ${score[1]}`;
+    $('end-stats').textContent = `${ai ? 'Contre l\'ordi · ' + LEVELS[settings.level].name : 'À deux joueurs'} · plus long échange : ${longest} renvoi${longest > 1 ? 's' : ''}`;
+    $('end').classList.remove('hidden');
+    if (kind !== 'lose') confetti();
+  }, 600);
+}
+function hideEnd() { $('end').classList.add('hidden'); stopConfetti(); }
+
+let confettiRAF = null;
+function confetti() {
+  const c = $('confetti'), cx = c.getContext('2d'); c.width = innerWidth; c.height = innerHeight;
+  const colors = ['#facc15', '#4ade80', '#60a5fa', '#f472b6', '#fb923c', '#c084fc'];
+  const parts = Array.from({ length: 180 }, () => ({ x: Math.random() * c.width, y: -20 - Math.random() * c.height * .6, vx: (Math.random() - .5) * 3, vy: 2 + Math.random() * 3, r: Math.random() * 6, vr: (Math.random() - .5) * .3, s: 7 + Math.random() * 7, c: colors[Math.floor(Math.random() * 6)] }));
+  const t0 = performance.now(); cancelAnimationFrame(confettiRAF);
+  const step = t => {
+    cx.clearRect(0, 0, c.width, c.height);
+    for (const p of parts) { p.x += p.vx; p.y += p.vy; p.vy += .03; p.r += p.vr; cx.save(); cx.translate(p.x, p.y); cx.rotate(p.r); cx.fillStyle = p.c; cx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); cx.restore(); }
+    if (t - t0 < 5000) confettiRAF = requestAnimationFrame(step); else cx.clearRect(0, 0, c.width, c.height);
+  };
+  confettiRAF = requestAnimationFrame(step);
+}
+function stopConfetti() { cancelAnimationFrame(confettiRAF); const c = $('confetti'); c.getContext('2d').clearRect(0, 0, c.width, c.height); }
+
+// ---------- interface ----------
+function renderSetup() {
+  for (const [id, key] of [['seg-mode', 'mode'], ['seg-level', 'level'], ['seg-target', 'target']])
+    $(id).querySelectorAll('button').forEach(b => b.classList.toggle('on', String(settings[key]) === b.dataset.v));
+  $('lvl-box').style.display = settings.mode === 'ai' ? '' : 'none';
+  $('help').textContent = settings.mode === 'ai'
+    ? 'Z/S, W/S, flèches ↑ ↓ ou souris pour bouger · Espace pour pause'
+    : 'Gauche : Z/S (ou W/S) · Droite : flèches ↑ ↓ · Espace pour pause';
+}
+for (const [id, key, num] of [['seg-mode', 'mode', false], ['seg-level', 'level', true], ['seg-target', 'target', true]]) {
+  $(id).addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    settings[key] = num ? +b.dataset.v : b.dataset.v; renderSetup();
+  });
+}
+function start() { hideEnd(); reset(); state = 'play'; $('overlay').classList.add('hidden'); lastT = performance.now(); }
+function openSetup() { hideEnd(); state = 'setup'; $('overlay').classList.remove('hidden'); }
+$('go').onclick = start;
+$('end-again').onclick = start;
+$('end-setup').onclick = openSetup;
+
+const isOpen = id => !$(id).classList.contains('hidden');
+$('rules-ok').onclick = () => $('rules').classList.add('hidden');
+$('rules-btn').onclick = () => { if (state === 'play') state = 'pause'; $('rules').classList.remove('hidden'); };
+
+$('pause-btn').onclick = () => {
+  if (state === 'play') state = 'pause';
+  else if (state === 'pause') { state = 'play'; lastT = performance.now(); }
+};
+setInterval(() => {
+  $('pause-btn').classList.toggle('hidden', state !== 'play' && state !== 'pause');
+  $('pause-btn').textContent = state === 'pause' ? '▶ Reprendre' : '⏸ Pause';
+}, 150);
+
+const KEYMAP = { z: 'w', w: 'w', s: 's', ArrowUp: 'up', ArrowDown: 'down' };
+document.addEventListener('keydown', e => {
+  if (isOpen('rules')) { if (['Escape', 'Enter', ' '].includes(e.key)) { e.preventDefault(); $('rules').classList.add('hidden'); } return; }
+  if (isOpen('end')) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(); } return; }
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (state === 'play') state = 'pause'; else if (state === 'pause') { state = 'play'; lastT = performance.now(); } else if (state === 'setup') start();
+    return;
+  }
+  const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase()];
+  if (k) { e.preventDefault(); keys[k] = true; }
+});
+document.addEventListener('keyup', e => { const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase()]; if (k) keys[k] = false; });
+window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play') state = 'pause'; });
+
+function pointer(e) {
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
+  if (settings.mode === 'ai' || x < W / 2) p1.target = y; else p2.target = y;
+}
+cv.addEventListener('pointermove', e => { if (state === 'play' && (e.pointerType === 'mouse' || e.buttons)) pointer(e); });
+cv.addEventListener('pointerdown', e => { if (state === 'play') { pointer(e); } });
+cv.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse' && p1) { p1.target = p2.target = null; } });
+
+renderSetup();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

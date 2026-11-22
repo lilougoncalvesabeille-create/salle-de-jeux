@@ -1,0 +1,54 @@
+/* Ajustements communs pour les petits écrans (téléphones). */
+html { -webkit-text-size-adjust: 100%; }
+/* Pas de zoom au double appui ni de sélection/menu quand on tape vite plusieurs fois. */
+html, body, button, a, canvas, input, select, label, [role="button"] { touch-action: manipulation; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+input, textarea { -webkit-user-select: text; user-select: text; }
+body { overscroll-behavior: none; }
+@media (max-width: 520px) {
+  .topbar { gap: 6px !important; }
+  .topbar h1 {
+    font-size: clamp(14px, 4.6vw, 20px) !important; letter-spacing: 1px !important;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .topbar a, .topbar button { padding: 6px 9px !important; font-size: 13px !important; flex-shrink: 0; }
+}
+
+/* Bouton pause bien visible dans la barre du haut (remplace « Règles » pendant la partie). */
+.topbar #pause-btn {
+  position: static; width: auto; height: auto; aspect-ratio: auto; flex-shrink: 0;
+  padding: 8px 14px; border: 0; border-radius: 8px; font-size: 14px; font-weight: 800;
+  background: #facc15; color: #1a1300; cursor: pointer; white-space: nowrap;
+}
+.topbar #pause-btn:hover { background: #fde047; }
+.topbar #pause-btn.hidden { display: none !important; }
+.topbar #pause-btn:not(.hidden) ~ #rules-btn { display: none; }
+
+/* Téléphone : pas d'aide clavier, marges réduites pour laisser la place au jeu. */
+@media (pointer: coarse) and (max-width: 600px) {
+  .help { display: none !important; }
+}
+/* Bouton plein écran ajouté par common.js */
+.topbar #fs-btn {
+  flex-shrink: 0; font: inherit; font-size: 16px; font-weight: 700; line-height: 1; padding: 8px 10px;
+  color: var(--text, #e6edf3); background: var(--grid, #1f2730); border: 0; border-radius: 8px; cursor: pointer;
+}
+.topbar #fs-btn:hover { background: #2a3440; }
+
+/* Partie « bord à bord » sur téléphone (classe ajoutée par common.js pendant une partie). */
+body.immersive { overflow: hidden; }
+body.immersive .wrap {
+  position: fixed !important; inset: 0 !important; width: auto !important; height: auto !important;
+  max-width: none !important; min-height: 0 !important; aspect-ratio: auto !important; margin: 0 !important; z-index: 15;
+}
+body.immersive .wrap canvas, body.immersive .wrap .screen { border-radius: 0 !important; }
+body.immersive .topbar > :not(#pause-btn), body.immersive .help, body.immersive .rotate-hint { display: none !important; }
+body.immersive .topbar #pause-btn {
+  position: fixed; z-index: 25; top: 4px; right: 6px; width: 32px; height: 32px; padding: 0 !important;
+  border-radius: 50%; font-size: 0 !important; background: #facc15; box-shadow: none;
+  display: flex; align-items: center; justify-content: center;
+}
+body.immersive .topbar #pause-btn::before { content: '⏸'; font-size: 14px; color: #1a1300; }
+
+/* Règles déjà vues : la fenêtre ne s'ouvre plus toute seule (common.js gère ensuite le bouton 📖). */
+html.rules-seen #rules { display: none !important; }

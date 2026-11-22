@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Snake</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1419">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<script>if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});</script>
+<script>try { if (localStorage.getItem("regles-vues:" + (location.pathname.split("/").pop() || "index.html"))) document.documentElement.classList.add("rules-seen"); } catch (e) {}</script>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #1a2129; --grid: #1f2730; --text: #e6edf3; --muted: #8b98a5;
+    --snake: #4ade80; --head: #22c55e; --food: #f87171; --accent: #facc15;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 16px;
+  }
+  h1 { margin: 0; font-size: 28px; letter-spacing: 2px; }
+  .hud { display: flex; gap: 24px; font-size: 16px; color: var(--muted); }
+  .hud b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .fx { display: flex; gap: 8px; min-height: 28px; flex-wrap: wrap; justify-content: center; }
+  .chip {
+    display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    background: var(--grid); font-size: 13px; border: 1px solid var(--c);
+  }
+  .chip .bar { width: 40px; height: 4px; background: #0f1419; border-radius: 2px; overflow: hidden; }
+  .chip .bar i { display: block; height: 100%; background: var(--c); }
+  .wrap { position: relative; width: min(480px, 100%); aspect-ratio: 1; }
+  canvas { width: 100%; height: 100%; display: block; background: var(--panel); border-radius: 12px; touch-action: none; }
+  .overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; background: rgba(15,20,25,.85); border-radius: 12px; text-align: center; padding: 16px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay h2 { margin: 0; font-size: 26px; }
+  .overlay p { margin: 0; color: var(--muted); }
+  button {
+    font: inherit; font-weight: 600; padding: 10px 22px; border: 0; border-radius: 8px;
+    background: var(--snake); color: #062b14; cursor: pointer;
+  }
+  button:hover { filter: brightness(1.1); }
+  .help { color: var(--muted); font-size: 14px; text-align: center; }
+  .legend {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px 14px;
+    width: min(480px, 100%); font-size: 13px; color: var(--muted);
+  }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend b { color: var(--text); font-weight: 600; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: min(480px, 100%); }
+  .topbar a, .ghost-btn {
+    font: inherit; font-size: 14px; font-weight: 600; color: var(--text); text-decoration: none;
+    background: var(--grid); padding: 8px 12px; border-radius: 8px; border: 0; cursor: pointer;
+  }
+  .topbar a:hover, .ghost-btn:hover { background: #2a3440; filter: none; }
+  .modal {
+    position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.7);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal.hidden { display: none; }
+  .modal .card {
+    background: var(--panel); width: min(560px, 100%); max-height: 90vh; overflow: auto;
+    border-radius: 14px; padding: 22px 24px; line-height: 1.5;
+  }
+  .modal h2 { margin: 0 0 6px; }
+  .modal h3 { margin: 16px 0 4px; font-size: 15px; color: var(--snake); text-transform: uppercase; letter-spacing: 1px; }
+  .modal p, .modal ul { margin: 4px 0; color: #c9d4de; font-size: 15px; }
+  .modal ul { padding-left: 20px; }
+  .modal .legend { width: 100%; margin-top: 6px; grid-template-columns: 1fr 1fr; font-size: 14px; }
+  @media (max-width: 480px) { .modal .legend { grid-template-columns: 1fr; } }
+  .modal .legend span { display: block; }
+  .modal .ok { display: block; margin: 18px auto 0; }
+  .pad { display: none; grid-template-columns: repeat(3, 56px); gap: 6px; }
+  .pad button { padding: 0; height: 56px; background: var(--grid); color: var(--text); font-size: 22px; }
+  @media (pointer: coarse) { .pad { display: grid; } }
+  /* Pas de défilement de la page : tout tient dans l'écran, et glisser ne fait bouger que le serpent. */
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { min-height: 0; height: 100dvh; touch-action: none; }
+  .modal .card { touch-action: pan-y; overscroll-behavior: contain; }
+  .wrap { width: min(480px, 100%, calc(100dvh - 190px)); }
+  @media (pointer: coarse) {
+    body { padding: 8px; gap: 8px; justify-content: flex-start; }
+    .wrap { width: min(480px, 100%, calc(100dvh - 330px)); }
+    .pad { grid-template-columns: repeat(3, 64px); }
+    .pad button { height: 60px; }
+  }
+</style>
+<link rel="stylesheet" href="mobile.css">
+<script src="common.js" defer></script>
+</head>
+<body>
+  <div class="topbar">
+    <a href="index.html">← Jeux</a>
+    <h1>🐍 SNAKE</h1>
+    <button class="ghost-btn hidden" id="pause-btn" title="Pause (Espace)">⏸ Pause</button>
+    <button class="ghost-btn" id="rules-btn">📖 Règles</button>
+  </div>
+  <div class="hud">
+    <span>Score : <b id="score">0</b></span>
+    <span>Record : <b id="best">0</b></span>
+  </div>
+  <div class="fx" id="fx"></div>
+  <div class="wrap">
+    <canvas id="c" width="480" height="480"></canvas>
+    <div class="overlay" id="overlay">
+      <h2 id="title">Prêt ?</h2>
+      <p id="msg">Mange les pommes, attrape les bonus, évite les murs et ta queue.</p>
+      <button id="start">Jouer</button>
+    </div>
+  </div>
+  <div class="pad">
+    <span></span><button data-d="up">▲</button><span></span>
+    <button data-d="left">◀</button><span></span><button data-d="right">▶</button>
+    <span></span><button data-d="down">▼</button><span></span>
+  </div>
+  <div class="help">Flèches ou ZQSD pour bouger · Espace pour pause · Glisse sur mobile</div>
+
+  <div class="modal" id="rules">
+    <div class="card">
+      <h2>🐍 Snake — Règles</h2>
+      <h3>But du jeu</h3>
+      <p>Fais grandir ton serpent en mangeant un maximum de pommes 🍎 pour battre ton record.</p>
+      <h3>Règles</h3>
+      <ul>
+        <li>Le serpent avance tout seul : tu choisis seulement sa direction.</li>
+        <li>Chaque pomme rapporte 1 point, allonge le serpent et le fait accélérer un peu.</li>
+        <li>Tu perds si tu touches un mur ou ta propre queue.</li>
+        <li>Impossible de faire demi-tour d'un coup.</li>
+      </ul>
+      <h3>Bonus</h3>
+      <p>Quand tu manges une pomme, un bonus peut apparaître (4 chances sur 10). Il clignote avant de disparaître : attrape-le vite ! Les bonus actifs s'affichent au-dessus du plateau avec leur durée.</p>
+      <div class="legend" id="legend"></div>
+      <h3>Commandes</h3>
+      <ul>
+        <li>Flèches ou ZQSD pour diriger le serpent.</li>
+        <li>Espace pour lancer la partie ou faire pause.</li>
+        <li>Sur mobile : glisse le doigt sur le plateau ou utilise les flèches.</li>
+      </ul>
+      <button class="ok" id="rules-ok">C'est parti !</button>
+    </div>
+  </div>
+
+<script>
+const N = 20;                       // cases par côté
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const S = canvas.width / N;
+const $ = id => document.getElementById(id);
+const DIRS = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] };
+
+// ---- Bonus ----
+// duration = nombre de déplacements pendant lesquels l'effet dure (0 = effet immédiat)
+const BONUS = {
+  gold:   { icon: '⭐', color: '#facc15', name: 'Étoile',     desc: '+5 points',               duration: 0,  weight: 3 },
+  slow:   { icon: '🐢', color: '#60a5fa', name: 'Tortue',     desc: 'ralentit le serpent',      duration: 40, weight: 3 },
+  ghost:  { icon: '👻', color: '#c084fc', name: 'Fantôme',    desc: 'traverse murs et queue',   duration: 50, weight: 2 },
+  x2:     { icon: '✨', color: '#fb923c', name: 'Double',     desc: 'points ×2',                duration: 60, weight: 2 },
+  shrink: { icon: '✂️', color: '#2dd4bf', name: 'Ciseaux',    desc: 'raccourcit la queue',      duration: 0,  weight: 2 },
+  magnet: { icon: '🧲', color: '#f472b6', name: 'Aimant',     desc: 'attire les pommes',        duration: 45, weight: 2 },
+};
+const BONUS_LIFE = 55;      // déplacements avant que le bonus disparaisse
+const BONUS_CHANCE = 0.4;   // chance qu'un bonus apparaisse quand on mange une pomme
+
+$('legend').innerHTML = Object.values(BONUS)
+  .map(b => `<span>${b.icon} <b>${b.name}</b> ${b.desc}</span>`).join('');
+
+let snake, dir, queue, food, bonus, effects, popups, score, speed, timer, running, paused, tick;
+let best = 0;
+try { best = +localStorage.getItem('snake-best') || 0; } catch {}
+$('best').textContent = best;
+
+function reset() {
+  snake = [[10,10],[9,10],[8,10]];
+  dir = DIRS.right; queue = [];
+  score = 0; speed = 130; tick = 0;
+  bonus = null; effects = {}; popups = [];
+  $('score').textContent = 0;
+  food = null; placeFood();
+  renderFx();
+}
+
+const same = (a, b) => a && b && a[0] === b[0] && a[1] === b[1];
+const active = k => (effects[k] || 0) > 0;
+
+function freeCell() {
+  const free = [];
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++) {
+    const c = [x, y];
+    if (!snake.some(s => same(s, c)) && !same(food, c) && !same(bonus && bonus.pos, c)) free.push(c);
+  }
+  return free.length ? free[Math.floor(Math.random() * free.length)] : null;
+}
+
+function placeFood() { food = null; food = freeCell(); }
+
+function spawnBonus() {
+  const entries = Object.entries(BONUS);
+  let r = Math.random() * entries.reduce((t, [, b]) => t + b.weight, 0);
+  let type = entries[0][0];
+  for (const [k, b] of entries) { r -= b.weight; if (r <= 0) { type = k; break; } }
+  const pos = freeCell();
+  if (pos) bonus = { type, pos, life: BONUS_LIFE };
+}
+
+function addScore(n, at) {
+  const pts = n * (active('x2') ? 2 : 1);
+  score += pts; $('score').textContent = score;
+  popup(`+${pts}`, at, active('x2') ? '#fb923c' : '#e6edf3');
+}
+
+function popup(text, at, color) { popups.push({ text, x: at[0], y: at[1], life: 10, color }); }
+
+function applyBonus(type, at) {
+  const b = BONUS[type];
+  if (type === 'gold') addScore(5, at);
+  else if (type === 'shrink') {
+    const cut = Math.min(4, snake.length - 3);
+    snake.length -= cut;
+    popup(cut > 0 ? `-${cut} ✂️` : '✂️', at, b.color);
+  } else {
+    effects[type] = b.duration;
+    popup(b.name + ' !', at, b.color);
+    if (type === 'slow') restartTimer();
+  }
+}
+
+function setDir(name) {
+  const d = DIRS[name]; if (!d) return;
+  const last = queue.length ? queue[queue.length-1] : dir;
+  if (d[0] === -last[0] && d[1] === -last[1]) return;  // pas de demi-tour
+  if (d === last) return;
+  if (queue.length < 3) queue.push(d);
+}
+
+function step() {
+  tick++;
+  if (queue.length) dir = queue.shift();
+  const ghost = active('ghost');
+  let nx = snake[0][0] + dir[0], ny = snake[0][1] + dir[1];
+  if (ghost) { nx = (nx + N) % N; ny = (ny + N) % N; }   // en fantôme, on ressort de l'autre côté
+  const head = [nx, ny];
+
+  // l'aimant tire la pomme d'une case vers la tête
+  if (active('magnet') && food && !same(food, head)) {
+    const fx = food[0] + Math.sign(nx - food[0]), fy = food[1] + Math.sign(ny - food[1]);
+    const c = Math.abs(nx - food[0]) >= Math.abs(ny - food[1]) ? [fx, food[1]] : [food[0], fy];
+    if (!snake.some(s => same(s, c)) && !same(bonus && bonus.pos, c)) food = c;
+  }
+
+  const ate = same(food, head);
+  const body = ate ? snake : snake.slice(0, -1);
+  const wall = nx < 0 || ny < 0 || nx >= N || ny >= N;
+  if (!ghost && (wall || body.some(s => same(s, head)))) return gameOver();
+
+  snake.unshift(head);
+  if (ate) {
+    addScore(1, head);
+    if (snake.length === N*N) return gameOver(true);
+    placeFood();
+    speed = Math.max(55, speed - 3);
+    if (!bonus && Math.random() < BONUS_CHANCE) spawnBonus();
+    restartTimer();
+  } else snake.pop();
+
+  if (bonus && same(bonus.pos, head)) { applyBonus(bonus.type, head); bonus = null; }
+  else if (bonus && --bonus.life <= 0) bonus = null;
+
+  for (const k in effects) {
+    if (effects[k] > 0 && --effects[k] === 0 && k === 'slow') restartTimer();
+  }
+  popups = popups.filter(p => --p.life > 0);
+  renderFx();
+  draw();
+}
+
+function renderFx() {
+  $('fx').innerHTML = Object.entries(effects).filter(([, t]) => t > 0).map(([k, t]) => {
+    const b = BONUS[k];
+    return `<span class="chip" style="--c:${b.color}">${b.icon} ${b.name}
+      <span class="bar"><i style="width:${100 * t / b.duration}%"></i></span></span>`;
+  }).join('');
+}
+
+function draw() {
+  ctx.fillStyle = '#1a2129'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#1f2730';
+  for (let x = 0; x < N; x++) for (let y = 0; y < N; y++)
+    if ((x + y) % 2) ctx.fillRect(x*S, y*S, S, S);
+
+  if (food) {
+    ctx.fillStyle = '#f87171';
+    ctx.beginPath(); ctx.arc(food[0]*S + S/2, food[1]*S + S/2, S*0.38, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#4ade80'; ctx.fillRect(food[0]*S + S/2 - 1, food[1]*S + 2, 3, 5);
+  }
+
+  // bonus : halo pulsé, clignote quand il va disparaître
+  if (bonus && !(bonus.life < 15 && tick % 2)) {
+    const b = BONUS[bonus.type];
+    const cx = bonus.pos[0]*S + S/2, cy = bonus.pos[1]*S + S/2;
+    ctx.save();
+    ctx.shadowColor = b.color; ctx.shadowBlur = 12 + 6 * Math.sin(tick / 2);
+    ctx.fillStyle = b.color + '33';
+    ctx.beginPath(); ctx.arc(cx, cy, S*0.5, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.font = `${Math.floor(S*0.7)}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(b.icon, cx, cy + 1);
+  }
+
+  // serpent
+  const ghost = active('ghost');
+  const ending = Object.values(effects).some(t => t > 0 && t < 10) && tick % 2;
+  ctx.globalAlpha = ghost ? (ending ? 0.8 : 0.45) : 1;
+  const bodyColor = ghost ? '#c084fc' : active('x2') ? '#fb923c' : active('slow') ? '#60a5fa' : '#4ade80';
+  snake.forEach(([x,y], i) => {
+    ctx.fillStyle = i === 0 ? shade(bodyColor) : bodyColor;
+    roundRect(x*S + 1, y*S + 1, S - 2, S - 2, 6);
+  });
+  ctx.globalAlpha = 1;
+
+  // yeux
+  const [hx, hy] = snake[0];
+  ctx.fillStyle = '#0f1419';
+  const cx = hx*S + S/2, cy = hy*S + S/2;
+  const px = -dir[1], py = dir[0];
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(cx + dir[0]*S*0.18 + px*s*S*0.2, cy + dir[1]*S*0.18 + py*s*S*0.2, 2.5, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // textes flottants
+  ctx.font = 'bold 16px system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const p of popups) {
+    ctx.globalAlpha = p.life / 10;
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.text, p.x*S + S/2, p.y*S - (10 - p.life) * 3);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function shade(hex) {   // version un peu plus foncée pour la tête
+  const n = parseInt(hex.slice(1), 16);
+  const f = c => Math.round(c * 0.8);
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.fill();
+}
+
+function restartTimer() {
+  clearInterval(timer);
+  timer = setInterval(step, active('slow') ? speed * 1.7 : speed);
+}
+
+function start() {
+  reset(); running = true; paused = false;
+  $('overlay').classList.add('hidden');
+  draw(); restartTimer();
+}
+
+$('pause-btn').onclick = () => togglePause();
+setInterval(() => {
+  $('pause-btn').classList.toggle('hidden', !running);
+  $('pause-btn').textContent = paused ? '▶ Reprendre' : '⏸ Pause';
+}, 150);
+function togglePause() {
+  if (!running) return;
+  paused = !paused;
+  if (paused) {
+    clearInterval(timer);
+    showOverlay('Pause', 'Appuie sur Espace pour reprendre.', 'Reprendre');
+  } else {
+    $('overlay').classList.add('hidden'); restartTimer();
+  }
+}
+
+function gameOver(win) {
+  clearInterval(timer); running = false; draw();
+  if (score > best) { best = score; $('best').textContent = best; try { localStorage.setItem('snake-best', best); } catch {} }
+  showOverlay(win ? 'Victoire ! 🏆' : 'Perdu !', `Score : ${score}`, 'Rejouer');
+}
+
+function showOverlay(t, m, b) {
+  $('title').textContent = t; $('msg').textContent = m; $('start').textContent = b;
+  $('overlay').classList.remove('hidden');
+}
+
+$('start').onclick = () => paused ? togglePause() : start();
+
+const KEYS = {
+  ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
+  z:'up', s:'down', q:'left', d:'right', w:'up', a:'left'
+};
+const rulesOpen = () => !$('rules').classList.contains('hidden');
+const closeRules = () => $('rules').classList.add('hidden');
+$('rules-ok').onclick = closeRules;
+$('rules-btn').onclick = () => {
+  if (running && !paused) togglePause();
+  $('rules').classList.remove('hidden');
+};
+
+document.addEventListener('keydown', e => {
+  if (rulesOpen()) {
+    if (e.key === 'Escape' || e.key === 'Enter' || e.code === 'Space') { e.preventDefault(); closeRules(); }
+    return;
+  }
+  if (e.code === 'Space' || e.key === 'Enter') {
+    e.preventDefault();
+    if (!running) start(); else togglePause();
+    return;
+  }
+  const k = KEYS[e.key] || KEYS[e.key.toLowerCase()];
+  if (k) { e.preventDefault(); if (running && !paused) setDir(k); }
+});
+
+document.querySelectorAll('.pad button').forEach(b => b.onclick = () => {
+  const d = b.dataset.d;
+  if (d === 'pause') { if (!running) start(); else togglePause(); }
+  else if (running && !paused) setDir(d);
+});
+
+let tx, ty;
+canvas.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+canvas.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 20 || !running || paused) return;
+  setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+});
+
+reset(); draw();
+</script>
+</body>
+</html>
