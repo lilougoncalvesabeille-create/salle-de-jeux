@@ -1,6 +1,6 @@
 // Service worker : garde tous les jeux en cache pour jouer hors connexion.
 // Change VERSION quand tu modifies un jeu pour forcer la mise à jour du cache.
-const VERSION = 'salle-de-jeux-20261122-230834';
+const VERSION = 'salle-de-jeux-20261122-230843';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest',
   'mobile.css', 'common.js', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',

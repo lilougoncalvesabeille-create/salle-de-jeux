@@ -25,14 +25,14 @@ $token = $env:GITHUB_PERSONAL_ACCESS_TOKEN
 if (-not $token) { $token = [Environment]::GetEnvironmentVariable('GITHUB_PERSONAL_ACCESS_TOKEN', 'User') }
 if (-not $token) { throw 'Clé GitHub introuvable : définis GITHUB_PERSONAL_ACCESS_TOKEN.' }
 $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$token"))
-$env:GIT_CONFIG_COUNT = '2'
+$env:GIT_CONFIG_COUNT = '1'
 $env:GIT_CONFIG_KEY_0 = 'http.https://github.com/.extraheader'; $env:GIT_CONFIG_VALUE_0 = "AUTHORIZATION: basic $basic"
-$env:GIT_CONFIG_KEY_1 = 'credential.helper'; $env:GIT_CONFIG_VALUE_1 = ''
+$env:GCM_INTERACTIVE = 'never'
 try {
   git push -u origin main --quiet
   if ($LASTEXITCODE -ne 0) { throw "L'envoi sur GitHub a échoué." }
 } finally {
-  Remove-Item Env:GIT_CONFIG_COUNT, Env:GIT_CONFIG_KEY_0, Env:GIT_CONFIG_VALUE_0, Env:GIT_CONFIG_KEY_1, Env:GIT_CONFIG_VALUE_1 -ErrorAction SilentlyContinue
+  Remove-Item Env:GIT_CONFIG_COUNT, Env:GIT_CONFIG_KEY_0, Env:GIT_CONFIG_VALUE_0, Env:GCM_INTERACTIVE -ErrorAction SilentlyContinue
 }
 
 $url = git remote get-url origin
