@@ -326,8 +326,11 @@ function costOf(b, n) {
 }
 function maxAffordable(b) {
   const owned = G.b[b.id] || 0, r = 1.15;
-  const n = Math.floor(Math.log(G.dust * (r - 1) / (b.base * Math.pow(r, owned)) + 1) / Math.log(r));
-  return Math.max(0, n);
+  let n = Math.max(0, Math.floor(Math.log(G.dust * (r - 1) / (b.base * Math.pow(r, owned)) + 1) / Math.log(r)) || 0);
+  // corrige les arrondis : « Max » ne doit jamais proposer un achat impossible (ni en oublier un)
+  while (n > 0 && costOf(b, n) > G.dust) n--;
+  while (costOf(b, n + 1) <= G.dust) n++;
+  return n;
 }
 const gain = v => { G.dust += v; G.total += v; G.allTime += v; };
 
@@ -551,8 +554,11 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { $('rules')
 // ---------- boucle ----------
 let lastTick = Date.now(), renderAcc = 0, saveAcc = 0, achAcc = 0;
 function tick() {
-  const now = Date.now(), dt = Math.min(5, (now - lastTick) / 1000);
+  const now = Date.now(), gap = (now - lastTick) / 1000, dt = Math.min(5, gap);
   lastTick = now;
+  // appli mise en arrière-plan sur téléphone (page gelée, sans rechargement) : on rattrape le temps perdu
+  // comme une production hors-ligne, sinon tout ce temps serait perdu
+  if (gap > 5) offlineGain(gap - dt, !document.hidden);
   gain(cps() * dt);
   for (const k in buffs) buffs[k] = Math.max(0, buffs[k] - dt);
   if (overheat > 0) { overheat -= dt; if (overheat <= 0) { overheat = 0; heat = 0; } }
@@ -574,15 +580,15 @@ load();
 let seenRules = false;
 try { seenRules = !!localStorage.getItem('forge-rules'); } catch {}
 if (seenRules) $('rules').classList.add('hidden');
-const away = (Date.now() - G.last) / 1000;
-if (G.allTime > 0 && away > 60) {
+function offlineGain(away, popup = true) {
+  if (!(G.allTime > 0 && away > 0)) return;
   const rate = has('night') ? 1 : .5, capped = Math.min(away, has('night') ? 86400 : 43200);
   const v = baseCps() * capped * rate;
-  if (v > 0) {
-    gain(v);
-    bigScreen('gold', '💤', 'Bon retour !', `Pendant ton absence (${fmtTime(away)}), tes machines ont forgé <b>${fmt(v)} ✨</b>${rate < 1 ? ' (à 50 % de leur vitesse)' : ''}.`, 0);
-  }
+  if (!(v > 0)) return;
+  gain(v);
+  if (popup && away > 60) bigScreen('gold', '💤', 'Bon retour !', `Pendant ton absence (${fmtTime(away)}), tes machines ont forgé <b>${fmt(v)} ✨</b>${rate < 1 ? ' (à 50 % de leur vitesse)' : ''}.`, 0);
 }
+offlineGain((Date.now() - G.last) / 1000);
 render();
 setInterval(tick, 50);
 window.addEventListener('beforeunload', save);

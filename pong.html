@@ -43,7 +43,9 @@
   @media (max-width: 600px) and (orientation: portrait) {
     .overlay { position: fixed; inset: 0; z-index: 20; border-radius: 0; overflow-y: auto; }
     .rotate-hint { display: block; }
+    body { min-height: 100dvh; }
   }
+  body.playing { touch-action: none; }
 
   .modal { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
   .modal.hidden { display: none; }
@@ -99,7 +101,7 @@
       </div>
     </div>
   </div>
-  <p class="rotate-hint">📱↻ Tourne ton téléphone pour un terrain plus grand</p>
+  <p class="rotate-hint">📱↻ Tourne ton téléphone pour un terrain plus grand<br>👆 Tu peux aussi glisser le doigt sous le terrain</p>
   <div class="help" id="help"></div>
 
   <div class="modal hidden" id="end">
@@ -164,7 +166,7 @@ const keys = {};
 
 function reset() {
   p1 = { y: H / 2 - PH / 2, target: null }; p2 = { y: H / 2 - PH / 2, target: null };
-  score = [0, 0]; longest = 0; particles = []; trail = [];
+  score = [0, 0]; longest = 0; particles = []; trail = []; fingers.clear();
   serve(Math.random() < .5 ? -1 : 1);
 }
 function serve(dir) {
@@ -211,8 +213,14 @@ function update(dt) {
 
   if (serveT > 0) { serveT -= dt; if (serveT <= 0) launch(); return; }
 
-  ball.x += ball.vx * dt; ball.y += ball.vy * dt;
+  // petits pas : à grande vitesse (ou sur un téléphone lent), la balle ne doit pas « traverser » une raquette
+  const n = Math.max(1, Math.ceil(Math.hypot(ball.vx, ball.vy) * dt / 8));
+  for (let i = 0; i < n && state === 'play' && serveT <= 0; i++) moveBall(dt / n);
   trail.push({ x: ball.x, y: ball.y }); if (trail.length > 12) trail.shift();
+}
+
+function moveBall(dt) {
+  ball.x += ball.vx * dt; ball.y += ball.vy * dt;
   if (ball.y < BR) { ball.y = BR; ball.vy *= -1; }
   if (ball.y > H - BR) { ball.y = H - BR; ball.vy *= -1; }
 
@@ -363,6 +371,7 @@ $('pause-btn').onclick = () => {
 };
 setInterval(() => {
   $('pause-btn').classList.toggle('hidden', state !== 'play' && state !== 'pause');
+  document.body.classList.toggle('playing', state === 'play');
   $('pause-btn').textContent = state === 'pause' ? '▶ Reprendre' : '⏸ Pause';
 }, 150);
 
@@ -381,14 +390,36 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => { const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase()]; if (k) keys[k] = false; });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; if (state === 'play') state = 'pause'; });
 
+// Chaque doigt reste attaché à la raquette de la moitié où il s'est posé (à deux, un doigt qui se lève ne bloque pas l'autre).
+const fingers = new Map();
 function pointer(e) {
   const r = cv.getBoundingClientRect();
   const x = (e.clientX - r.left) * W / r.width, y = (e.clientY - r.top) * H / r.height;
-  if (settings.mode === 'ai' || x < W / 2) p1.target = y; else p2.target = y;
+  if (e.pointerType === 'mouse' || !fingers.has(e.pointerId)) fingers.set(e.pointerId, settings.mode === 'ai' || x < W / 2 ? p1 : p2);
+  fingers.get(e.pointerId).target = y;
 }
 cv.addEventListener('pointermove', e => { if (state === 'play' && (e.pointerType === 'mouse' || e.buttons)) pointer(e); });
-cv.addEventListener('pointerdown', e => { if (state === 'play') { pointer(e); } });
-cv.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse' && p1) { p1.target = p2.target = null; } });
+cv.addEventListener('pointerdown', e => { if (state === 'play') { fingers.delete(e.pointerId); pointer(e); } });
+const lift = e => { const p = fingers.get(e.pointerId); fingers.delete(e.pointerId); if (e.pointerType !== 'mouse' && p) p.target = null; };
+cv.addEventListener('pointerup', lift);
+cv.addEventListener('pointercancel', lift);
+
+// Téléphone en portrait : le terrain est petit, alors on peut aussi glisser le doigt n'importe où sous le terrain
+// (déplacement relatif : la raquette bouge autant que le doigt, à l'échelle du terrain).
+const drags = new Map();
+document.addEventListener('pointerdown', e => {
+  if (state !== 'play' || e.pointerType === 'mouse' || e.target.closest('canvas, button, a, .modal')) return;
+  const p = settings.mode === 'ai' || e.clientX < innerWidth / 2 ? p1 : p2;
+  drags.set(e.pointerId, { p, y0: e.clientY, c0: p.y + PH / 2 });
+});
+document.addEventListener('pointermove', e => {
+  const d = drags.get(e.pointerId); if (!d || state !== 'play') return;
+  const scale = H / cv.getBoundingClientRect().height;
+  d.p.target = Math.max(PH / 2, Math.min(H - PH / 2, d.c0 + (e.clientY - d.y0) * scale));
+});
+const endDrag = e => { const d = drags.get(e.pointerId); if (d) { d.p.target = null; drags.delete(e.pointerId); } };
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
 
 renderSetup();
 requestAnimationFrame(frame);

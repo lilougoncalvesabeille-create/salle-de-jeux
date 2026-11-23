@@ -232,7 +232,11 @@ function finish(r) {
 
 function newGame(swap = true) {
   gameId++; hideEnd();
-  if (swap && games > 0) humanSym = humanSym === 'X' ? 'O' : 'X';
+  if (swap && games > 0) {
+    humanSym = humanSym === 'X' ? 'O' : 'X';
+    // contre l'ordi, les scores suivent le joueur (Toi / Ordi), pas le symbole
+    if (settings.mode === 'ai') [scores.X, scores.O] = [scores.O, scores.X];
+  }
   games++;
   board = Array(9).fill(null); turn = 'X'; over = null; thinking = false;
   render(); maybeAI();

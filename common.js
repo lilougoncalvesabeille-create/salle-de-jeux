@@ -63,8 +63,13 @@
   };
   addEventListener('resize', () => { if (imm && !isPhone()) { imm = false; document.body.classList.remove('immersive'); } });
 
-  // Quand on sort du plein écran avec le bouton retour du téléphone, on oublie le choix.
-  document.addEventListener('fullscreenchange', () => { if (!fsOn() && document.visibilityState === 'visible') setTimeout(() => { if (!fsOn()) want(false); }, 50); });
+  // Quand on sort du plein écran avec le bouton retour du téléphone, on oublie le choix
+  // (mais pas quand on change simplement de page : le navigateur quitte alors le plein écran tout seul).
+  let leaving = false;
+  addEventListener('pagehide', () => { leaving = true; });
+  addEventListener('beforeunload', () => { leaving = true; });
+  document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (a) leaving = true; }, true);
+  document.addEventListener('fullscreenchange', () => { if (!fsOn() && !leaving && document.visibilityState === 'visible') setTimeout(() => { if (!fsOn() && !leaving) want(false); }, 300); });
 
   // ---- Sauvegardes : stockage persistant + copie de secours dans IndexedDB ----
   // Le navigateur ne doit pas effacer les sauvegardes pour libérer de la place.

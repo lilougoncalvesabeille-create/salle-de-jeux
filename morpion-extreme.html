@@ -46,6 +46,12 @@
   .sb.play .cell:not(.taken):hover { background: #34445a; }
   .cell.last { box-shadow: 0 0 0 2px #fff inset; }
   .cell .ghost { opacity: .3; }
+  /* téléphone : plateau bord à bord pour agrandir les 81 cases (≈ 29 px au lieu de 25 px sur 360 px) */
+  @media (max-width: 480px) {
+    body { padding: 12px 6px; }
+    .big { --s: calc(100vw - 12px); padding: 1%; gap: 1.5%; }
+    .sb { gap: 3.5%; padding: 3.5%; }
+  }
   .won { position: absolute; inset: 0; border-radius: 10px; display: flex; align-items: center; justify-content: center;
     background: rgba(15, 20, 25, .72); font-size: calc(var(--s) / 3 * .75); font-weight: 900; line-height: 1; pointer-events: none; }
   .won[hidden] { display: none; }
@@ -293,7 +299,11 @@ function undo() {
 }
 function newGame(swap = true) {
   gameId++; hideEnd();
-  if (swap && games > 0) human = 3 - human;
+  if (swap && games > 0) {
+    human = 3 - human;
+    // contre l'ordi, les scores suivent le joueur (Toi / Ordi), pas le symbole
+    if (settings.mode === 'ai') [scores[1], scores[2]] = [scores[2], scores[1]];
+  }
   games++;
   S = newState(); history = []; thinking = false; popIdx = -1; hover = -1;
   render(); maybeAI();

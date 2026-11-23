@@ -285,7 +285,7 @@
         <li>Renvoie la balle avec ta raquette. L'endroit où elle touche la raquette décide de l'angle : les bords l'envoient en biais.</li>
         <li>Si la dernière balle tombe, tu perds une vie. À 0 vie, le niveau est perdu, mais tu <b>gardes les cristaux ramassés</b>.</li>
         <li>Le niveau est gagné quand toutes les briques destructibles ont disparu (ou quand le boss est vaincu).</li>
-        <li>Étoiles : 3 ★ sans perdre de vie, 2 ★ avec une vie perdue, sinon 1 ★.</li>
+        <li>Étoiles : 3 ★ sans perdre de vie, 2 ★ avec une vie perdue, sinon 1 ★. Chaque <b>nouvelle étoile</b> et chaque <b>premier passage</b> d'un niveau rapportent un gros bonus de cristaux !</li>
       </ul>
       <h3>🧱 Les briques</h3>
       <ul>
@@ -337,6 +337,7 @@ function setArVars() { document.documentElement.style.setProperty('--arn', Strin
 setArVars();
 function applyH(h) {
   H = h; cv.height = H * DPR; setArVars();
+  for (const k in gradCache) delete gradCache[k]; // le dégradé du fond dépend de la hauteur
   PADY = H - 64; if (typeof P !== 'undefined' && P) P.y = PADY;
 }
 let fitT = 0;
@@ -474,11 +475,14 @@ function paddleW() {
 const paddleSpeed = () => 560 * curPad().sm * (1 + .1 * upL('speed'));
 const dmgMul = () => 1 + .25 * upL('dmg');
 const durMul = () => 1 + .15 * upL('dur');
-const gemMul = () => (1 + .15 * upL('gem')) * (run.kind === 'endless' ? 1 + .1 * run.stage : 1 + .4 * (run.w - 1));
+const worldGem = w => 1 + .6 * (w - 1); // cristaux par brique : ×1 / ×1,6 / ×2,2 / ×2,8 selon le monde
+const gemMul = () => (1 + .15 * upL('gem')) * (run.kind === 'endless' ? 1 + .1 * run.stage : worldGem(run.w));
 function ballSpeed() {
   let s = run.baseSpeed * (1 + Math.min(.22, run.time / 260));
   if (run.fx.slow > 0) s *= .7;
   if (run.fx.fast > 0) s *= 1.32;
+  // terrain plus haut sur téléphone : la balle va un peu plus vite pour que le rythme reste le même
+  if (H > 720) s *= Math.min(1.2, Math.sqrt(H / 720));
   return s;
 }
 
@@ -510,7 +514,7 @@ function buildBricks(rows, wi, hpMul = 1) {
   return list;
 }
 function genPattern(stage) {
-  const rows = Math.min(10, 4 + Math.floor(stage / 2) + (Math.random() * 2 | 0));
+  const rows = Math.min(9, 4 + Math.floor(stage / 3) + (Math.random() * 2 | 0));
   const pInd = Math.min(.12, .015 * stage), pR = Math.min(.55, .08 + .05 * stage), pMob = Math.min(.3, .04 * stage);
   const out = [];
   for (let r = 0; r < rows; r++) {
@@ -562,10 +566,10 @@ function setupStage() {
   } else {
     wi = Math.floor((R.stage - 1) / 5) % 4;
     const pw = powerScore();
-    hpMul = 1 + .1 * (R.stage - 1) + .02 * pw;
+    hpMul = 1 + .06 * (R.stage - 1) + .006 * pw;
     if (R.stage % 5 === 0) {
       bossType = WORLDS[wi].boss; pat = LEVELS[wi][4].p;
-      bossMul = (1 + .12 * R.stage) * (1 + .03 * pw);
+      bossMul = (1 + .1 * R.stage) * (1 + .008 * pw);
     } else pat = genPattern(R.stage);
     R.baseSpeed = 330 + Math.min(170, R.stage * 9 + pw * 1.5);
     R.label = bossType ? `Étape ${R.stage} · ${BOSSES[bossType].n}` : `Étape ${R.stage}`;
@@ -613,7 +617,11 @@ function startEndless() {
 // =====================================================================
 // MISE À JOUR
 // =====================================================================
-function addText(x, y, s, c = '#fff', size = 16) { run.texts.push({ x, y, s, c, t: 0, size }); }
+function addText(x, y, s, c = '#fff', size = 16) {
+  // deux messages au même endroit (ex. deux bonus d'affilée) : on décale le nouveau pour qu'ils restent lisibles
+  for (const o of run.texts) if (o.t < .5 && Math.abs(o.x - x) < 90 && Math.abs(o.y - y) < 18) y = o.y - 22;
+  run.texts.push({ x, y, s, c, t: 0, size });
+}
 function burst(x, y, col, n = 12, sp = 160, life = .6, size = 3) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * TAU, v = rnd(.3, 1) * sp;
@@ -955,7 +963,7 @@ function update(dt) {
   const mr = upL('magnet') ? 40 + 45 * upL('magnet') : 22;
   for (let i = R.gems.length - 1; i >= 0; i--) {
     const g = R.gems[i]; g.t += dt;
-    const dx = P.x - g.x, dy = P.y - g.y, dist = Math.hypot(dx, dy);
+    const dx = P.x - g.x, dy = P.y - g.y, dist = Math.hypot(dx, dy) || 1;
     if (R.cleared || (dist < mr + P.w / 2 && g.t > .3)) { const k = R.cleared ? 900 : 700; g.vx += dx / dist * k * dt; g.vy += dy / dist * k * dt; g.vx *= .96; g.vy *= .96; }
     else { g.vy += 300 * dt; g.vx *= .99; }
     g.x += g.vx * dt; g.y += g.vy * dt;
@@ -997,7 +1005,7 @@ function update(dt) {
   R.shake *= Math.pow(.004, dt);
   // sécurité anti-blocage : les blocs indestructibles se fissurent
   if (!R.balls.every(b => b.held)) R.idle += dt;
-  if (R.idle > 20 && !R.cleared) {
+  if (R.idle > 14 && !R.cleared) {
     R.idle = 0;
     let n = 0;
     for (const b of R.bricks) if (b.alive && b.t === 'i') { b.t = 'r'; b.hp = b.max = 2; n++; }
@@ -1030,7 +1038,7 @@ function stageDone() {
   for (const g of R.gems) R.cr += g.v;
   R.gems = [];
   if (R.kind === 'endless') {
-    const bonus = Math.round((4 + R.stage * 1.5) * (1 + .15 * upL('gem')));
+    const bonus = Math.round((6 + R.stage * 2) * (1 + .15 * upL('gem')));
     R.cr += bonus;
     if (R.isBoss) R.lives = Math.min(9, R.lives + 1);
     S.endless.best = Math.max(S.endless.best, R.stage); persist();
@@ -1046,6 +1054,9 @@ function stageDone() {
   R.cr += bonus;
   const before = worldsCleared();
   const key = w + '-' + l, first = !S.stars[key];
+  // récompenses de progression : premier passage du niveau + chaque nouvelle étoile gagnée
+  const firstB = first ? (l === 5 ? 120 : 40) * w : 0, newSt = Math.max(0, st - (S.stars[key] || 0)), starB = newSt * 20 * w;
+  R.cr += firstB + starB;
   S.stars[key] = Math.max(S.stars[key] || 0, st);
   const gained = Math.round(R.cr);
   S.cr += gained; persist();
@@ -1064,7 +1075,7 @@ function stageDone() {
   showEnd({
     col: R.isBoss ? '#facc15' : '#4ade80', emoji: R.isBoss ? '🏆' : '🎉', title: R.isBoss ? 'Boss vaincu !' : 'Victoire !',
     stars: st, score: R.score,
-    stats: `Cristaux : <b class="cr">💎 +${fmt(gained)}</b> (dont ${bonus} de bonus) · total <b class="cr">💎 ${fmt(S.cr)}</b><br>Briques cassées : <b>${R.broken}</b> · vies perdues : <b>${R.lost}</b> · temps : <b>${Math.round(R.total)} s</b>`,
+    stats: `Cristaux : <b class="cr">💎 +${fmt(gained)}</b> (dont ${bonus + firstB + starB} de bonus${firstB || starB ? ` : ${[firstB ? `premier passage +${firstB}` : '', starB ? `${newSt} nouvelle${newSt > 1 ? 's' : ''} étoile${newSt > 1 ? 's' : ''} +${starB}` : ''].filter(Boolean).join(', ')}` : ''}) · total <b class="cr">💎 ${fmt(S.cr)}</b><br>Briques cassées : <b>${R.broken}</b> · vies perdues : <b>${R.lost}</b> · temps : <b>${Math.round(R.total)} s</b>`,
     notes,
     actions: [[nextLabel, next, true], ['🔧 Améliorer', () => openWorkshop('s-shop', { label: nextLabel, fn: next })], ['🌌 Carte', () => { curWorld = l === 5 && w < 4 ? w + 1 : w; goMenu('s-levels'); }]],
   });
@@ -1547,7 +1558,7 @@ function renderLevels() {
     box.append(b);
   }
   const bo = BOSSES[wd.boss];
-  $('lv-info').innerHTML = `<b>${wd.n}</b> — ${wd.s}.<br>Boss : <b>${bo.n}</b>, qui ${bo.d}.<br>Cristaux ×${(1 + .4 * (w - 1)).toFixed(1).replace('.', ',')} dans ce monde.`;
+  $('lv-info').innerHTML = `<b>${wd.n}</b> — ${wd.s}.<br>Boss : <b>${bo.n}</b>, qui ${bo.d}.<br>Cristaux ×${worldGem(w).toFixed(1).replace('.', ',')} dans ce monde · premier passage : 💎 ${40 * w} (boss : 💎 ${120 * w}) · chaque nouvelle étoile : 💎 ${20 * w}.`;
 }
 function renderHangar() {
   const box = $('pad-list'); box.innerHTML = '';
@@ -1589,8 +1600,8 @@ function renderShop() {
 }
 function renderEndless() {
   $('e-best').textContent = S.endless.best;
-  const p = powerScore(), hp = 1 + .02 * p;
-  $('e-info').innerHTML = `Ta puissance actuelle : <b>${p}</b> (améliorations + raquette).<br>Les murs s'adaptent : solidité des briques <b>×${hp.toFixed(2).replace('.', ',')}</b> dès l'étape 1, puis +10 % à chaque étape, et la balle accélère.<br>Un <b>boss</b> toutes les 5 étapes (+1 vie s'il est vaincu). Les cristaux rapportés augmentent avec l'étape.`;
+  const p = powerScore(), hp = 1 + .006 * p;
+  $('e-info').innerHTML = `Ta puissance actuelle : <b>${p}</b> (améliorations + raquette).<br>Les murs s'adaptent : solidité des briques <b>×${hp.toFixed(2).replace('.', ',')}</b> dès l'étape 1, puis +6 % à chaque étape, et la balle accélère.<br>Un <b>boss</b> toutes les 5 étapes (+1 vie s'il est vaincu). Les cristaux rapportés augmentent avec l'étape.`;
 }
 $('e-go').onclick = startEndless;
 
@@ -1602,7 +1613,13 @@ function pause() {
 }
 function resume() { if (mode !== 'pause') return; mode = 'play'; last = performance.now(); showScreen(null); }
 $('p-resume').onclick = resume;
-$('p-restart').onclick = () => { if (run.kind === 'level') startLevel(run.w, run.l); else startEndless(); };
+$('p-restart').onclick = () => {
+  // les cristaux déjà ramassés sont gardés, comme quand on quitte
+  S.cr += Math.round(run.cr);
+  if (run.kind === 'endless') S.endless.best = Math.max(S.endless.best, run.stage - 1);
+  persist();
+  if (run.kind === 'level') startLevel(run.w, run.l); else startEndless();
+};
 $('p-quit').onclick = () => {
   S.cr += Math.round(run.cr);
   if (run.kind === 'endless') S.endless.best = Math.max(S.endless.best, run.stage - 1);

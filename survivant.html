@@ -447,11 +447,11 @@ const WP = {
   bolt:   { n: 'Trait magique', ic: '✨', c: '#c4b5fd', d: "Projectile qui vise l'ennemi le plus proche.",
     L: [null, { dmg: 12, n: 1, cd: .6, pierce: 0 }, { dmg: 15, n: 1, cd: .55, pierce: 0 }, { dmg: 15, n: 2, cd: .55, pierce: 1 }, { dmg: 19, n: 2, cd: .5, pierce: 1 }, { dmg: 23, n: 3, cd: .45, pierce: 2 }, { dmg: 30, n: 3, cd: .4, pierce: 3 }] },
   orb:    { n: 'Orbes gardiennes', ic: '🔮', c: '#60a5fa', d: 'Des orbes tournent autour de toi et repoussent les ennemis.',
-    L: [null, { dmg: 9, n: 2, r: 80 }, { dmg: 11, n: 2, r: 85 }, { dmg: 11, n: 3, r: 90 }, { dmg: 14, n: 3, r: 95 }, { dmg: 16, n: 4, r: 100 }, { dmg: 20, n: 5, r: 110 }] },
+    L: [null, { dmg: 10, n: 2, r: 80 }, { dmg: 12, n: 2, r: 85 }, { dmg: 13, n: 3, r: 90 }, { dmg: 16, n: 3, r: 95 }, { dmg: 19, n: 4, r: 100 }, { dmg: 24, n: 5, r: 110 }] },
   aura:   { n: 'Aura sacrée', ic: '🌀', c: '#fb923c', d: 'Brûle et ralentit les ennemis proches.',
-    L: [null, { dmg: 5, r: 65 }, { dmg: 7, r: 72 }, { dmg: 8, r: 82 }, { dmg: 10, r: 90 }, { dmg: 12, r: 100 }, { dmg: 16, r: 115 }] },
+    L: [null, { dmg: 7, r: 70 }, { dmg: 9, r: 78 }, { dmg: 11, r: 86 }, { dmg: 13, r: 94 }, { dmg: 16, r: 104 }, { dmg: 21, r: 118 }] },
   chain:  { n: 'Éclair en chaîne', ic: '⚡', c: '#facc15', d: 'Foudroie un ennemi puis rebondit sur ses voisins.',
-    L: [null, { dmg: 16, j: 2, cd: 1.5 }, { dmg: 19, j: 3, cd: 1.4 }, { dmg: 23, j: 3, cd: 1.25 }, { dmg: 27, j: 4, cd: 1.15 }, { dmg: 32, j: 5, cd: 1.05 }, { dmg: 40, j: 7, cd: .9 }] },
+    L: [null, { dmg: 20, j: 3, cd: 1.3 }, { dmg: 24, j: 3, cd: 1.2 }, { dmg: 28, j: 4, cd: 1.1 }, { dmg: 32, j: 5, cd: 1 }, { dmg: 38, j: 6, cd: .9 }, { dmg: 48, j: 8, cd: .75 }] },
   boom:   { n: 'Boomerang', ic: '🪃', c: '#4ade80', d: 'Part, transperce tout sur son passage et revient.',
     L: [null, { dmg: 14, n: 1, cd: 1.7 }, { dmg: 17, n: 1, cd: 1.55 }, { dmg: 18, n: 2, cd: 1.5 }, { dmg: 22, n: 2, cd: 1.35 }, { dmg: 26, n: 3, cd: 1.25 }, { dmg: 32, n: 3, cd: 1.05 }] },
   mine:   { n: 'Mines runiques', ic: '💣', c: '#f472b6', d: 'Pose des mines qui explosent au contact des ennemis.',
@@ -459,7 +459,7 @@ const WP = {
   laser:  { n: 'Rayon prisme', ic: '🔆', c: '#f0abfc', d: 'Un rayon perçant brûle tout sur sa ligne.',
     L: [null, { dmg: 8, n: 1, cd: 2.4, dur: .6, w: 12 }, { dmg: 8, n: 1, cd: 2.2, dur: .75, w: 14 }, { dmg: 8, n: 2, cd: 2.5, dur: .7, w: 15 }, { dmg: 10, n: 2, cd: 2.3, dur: .8, w: 17 }, { dmg: 12, n: 3, cd: 2.1, dur: .9, w: 19 }, { dmg: 15, n: 3, cd: 1.8, dur: 1, w: 22 }] },
   meteor: { n: 'Pluie de météores', ic: '☄️', c: '#f97316', d: "Des météores s'écrasent sur les ennemis.",
-    L: [null, { dmg: 40, n: 1, cd: 2.5, r: 58 }, { dmg: 46, n: 2, cd: 2.4, r: 62 }, { dmg: 54, n: 2, cd: 2.2, r: 66 }, { dmg: 62, n: 3, cd: 2, r: 70 }, { dmg: 72, n: 3, cd: 1.8, r: 76 }, { dmg: 90, n: 4, cd: 1.6, r: 85 }] },
+    L: [null, { dmg: 40, n: 1, cd: 2.5, r: 58 }, { dmg: 46, n: 2, cd: 2.4, r: 62 }, { dmg: 54, n: 2, cd: 2.2, r: 66 }, { dmg: 58, n: 3, cd: 2, r: 70 }, { dmg: 66, n: 3, cd: 1.8, r: 76 }, { dmg: 80, n: 4, cd: 1.6, r: 85 }] },
 };
 const STL = { dmg: 'Dégâts', n: 'Nombre', cd: 'Recharge', pierce: 'Perforation', r: 'Zone', j: 'Rebonds', dur: 'Durée', w: 'Largeur' };
 function wDiff(id, l) {
@@ -759,7 +759,7 @@ function newRun(kind, z, l) {
   const h = curHero();
   P = { x: AR / 2, y: AR / 2, r: 12, hp: 1, maxHp: 1, inv: 1, face: 1, ax: 1, ay: 0, moving: false, walk: 0 };
   R = {
-    kind, z, l, zi: z - 1, t: 0, dur: kind === 'level' ? LVL_DUR(z, l) : Infinity, kills: 0, cr: 0, xp: 0, lvl: 1, xpNeed: xpNeed(1), pending: upL('start'),
+    kind, z, l, zi: z - 1, t: 0, dur: kind === 'level' ? LVL_DUR(z, l) : Infinity, kills: 0, cr: 0, xp: 0, lvl: 1 + upL('start'), xpNeed: xpNeed(1 + upL('start')), pending: upL('start'),
     w: {}, wList: [], passives: {}, rerolls: upL('reroll'), revives: upL('revive'), revived: false, boss: null, bossSpawned: false, bossN: 0,
     nextBoss: 150, spAcc: 0, hordeT: 50, eliteT: 38, endT: null, won: false, banner: null, hurtT: 0, adapt: 1 + .02 * powerScore(), deco: [], dmgDone: 0,
   };
@@ -778,7 +778,7 @@ function makeDeco() {
   }
   R.deco.sort((a, b) => a.y - b.y);
 }
-function xpNeed(l) { return Math.floor(4 + l * 5 + Math.pow(l, 1.7)); }
+function xpNeed(l) { return Math.floor(4 + l * 4.5 + Math.pow(l, 1.65)); }
 function calcStats() {
   const h = curHero(), b = h.bonus || {}, pl = id => R.passives[id] || 0;
   const old = P.maxHp;
@@ -788,7 +788,7 @@ function calcStats() {
   P.dmgM = 1 + upL('dmg') * .06 + pl('might') * .12 + (b.dmg || 0);
   P.cdM = Math.max(.4, 1 - upL('cd') * .04 - pl('haste') * .08 - (b.haste || 0));
   P.areaM = 1 + upL('area') * .06 + pl('area') * .1 + (b.area || 0);
-  P.magnet = 75 * (1 + upL('mag') * .15 + pl('magnet') * .3 + (b.magnet || 0));
+  P.magnet = 85 * (1 + upL('mag') * .15 + pl('magnet') * .3 + (b.magnet || 0));
   P.armor = upL('armor') + pl('armor') + (b.armor || 0);
   P.regen = upL('regen') * .2 + pl('regen') * .4 + (b.regen || 0);
   P.xpM = 1 + upL('xp') * .08 + (b.xp || 0);
@@ -799,8 +799,10 @@ function addWeapon(id) { if (R.w[id]) return; R.w[id] = { l: 1, cd: .4, tick: 0,
 
 function diff() {
   if (R.kind === 'level') {
-    const tm = R.t / 60, z = R.z, l = R.l;
-    return { hp: (1 + (z - 1) * .55 + (l - 1) * .15) * (1 + tm * .38), dmg: 1 + (z - 1) * .25 + (l - 1) * .06 + tm * .05, rate: (.9 + R.t * .021) * (1 + (z - 1) * .12 + (l - 1) * .06) };
+    // pendant le combat contre le boss, la difficulté cesse de monter (sinon un combat long devient injouable)
+    const t = Math.min(R.t, R.dur), tm = t / 60, z = R.z, l = R.l;
+    // le bonus de PV de la zone monte sur la 1re minute : le début de partie reste jouable avec l'arme de départ
+    return { hp: (1 + ((z - 1) * .55 + (l - 1) * .15) * Math.min(1, .5 + tm * .5)) * (1 + tm * .38), dmg: 1 + (z - 1) * .25 + (l - 1) * .06 + tm * .05, rate: (.9 + t * .021) * (1 + (z - 1) * .12 + (l - 1) * .06) };
   }
   const tm = R.t / 60;
   return { hp: (1 + tm * .5) * R.adapt * (1 + .025 * (R.lvl - 1)), dmg: 1 + tm * .12 + (R.adapt - 1) * .3, rate: 1.3 + R.t * .028 };
@@ -817,7 +819,7 @@ function spawnEnemy(ki, x, y, o = {}) {
   const e = {
     id: nextId++, zi, ki, b: K.b, K, x: clamp(x, 20, AR - 20), y: clamp(y, 20, AR - 20), r: B.r * (el ? 1.5 : 1) * (sm ? .62 : 1),
     hp: B.hp * d.hp * hpm, maxHp: B.hp * d.hp * hpm, spd: B.spd * (el ? .9 : 1) * (sm ? 1.2 : 1) * rnd(.92, 1.08), dmg: B.dmg * d.dmg * (el ? 1.5 : 1),
-    xp: B.xp * (el ? 10 : 1) * (R.kind === 'level' ? 1 + (R.z - 1) * .3 : 1 + R.bossN * .3), elite: el, small: sm, flash: 0, kx: 0, ky: 0, t: rnd(0, 5), slowT: 0, fireT: rnd(1.5, 3), arm: null, spr: enemySpr(zi, ki, el, sm), orbT: 0,
+    xp: B.xp * (el ? 10 : 1) * (R.kind === 'level' ? 1 + (R.z - 1) * .15 : 1 + R.bossN * .3), elite: el, small: sm, flash: 0, kx: 0, ky: 0, t: rnd(0, 5), slowT: 0, fireT: rnd(1.5, 3), arm: null, spr: enemySpr(zi, ki, el, sm), orbT: 0,
   };
   E.push(e); return e;
 }
@@ -834,7 +836,7 @@ function spawner(dt) {
   if (R.endT != null) return;
   const d = diff(); let rate = d.rate;
   const bossAlive = R.boss && !R.boss.dead;
-  if (bossAlive) rate *= .35;
+  if (bossAlive) rate *= R.kind === 'level' ? .2 : .35; // moins de sbires pendant le boss : les armes visent enfin le boss
   R.spAcc += rate * dt;
   const av = kindsAvail();
   while (R.spAcc >= 1) {
@@ -852,7 +854,7 @@ function spawner(dt) {
     banner('Une horde t\'encercle !', '#f87171');
   }
   R.eliteT -= dt;
-  if (R.eliteT <= 0) {
+  if (R.eliteT <= 0 && !(bossAlive && R.kind === 'level')) {
     R.eliteT = R.kind === 'endless' ? 28 : 40;
     const [x, y] = ringPos(); if (spawnEnemy(pick(av), x, y, { elite: true, force: true })) banner('Un élite approche !', '#facc15');
   }
@@ -863,7 +865,7 @@ function spawnBoss(k) {
   const B = BOSSES[k];
   R.bossSpawned = true;
   let hp;
-  if (R.kind === 'level') hp = 2600 * (1 + (R.z - 1) * 1.15) * (1 + (R.l - 1) * .35);
+  if (R.kind === 'level') hp = 2400 * (1 + (R.z - 1) * .9) * (1 + (R.l - 1) * .25);
   else hp = 3000 * (1 + R.bossN * 1.2) * R.adapt * (1 + R.lvl * .02);
   const a = rnd(0, TAU), x = clamp(P.x + Math.cos(a) * 380, 80, AR - 80), y = clamp(P.y + Math.sin(a) * 380, 80, AR - 80);
   const d = diff();
@@ -935,7 +937,8 @@ function forNear(x, y, r, fn) {
 }
 function nearest(x, y, maxD) {
   let best = null, bd = maxD * maxD;
-  for (const e of E) { if (e.dead || e.hidden) continue; const dx = e.x - x, dy = e.y - y, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = e; } }
+  // le boss est visé en priorité (compte comme ~2 fois plus proche)
+  for (const e of E) { if (e.dead || e.hidden) continue; const dx = e.x - x, dy = e.y - y; let d = dx * dx + dy * dy; if (e.boss) d *= .3; if (d < bd) { bd = d; best = e; } }
   return best;
 }
 function hitEnemy(e, dmg, kx = 0, ky = 0, kb = 0, col) {
@@ -1149,11 +1152,11 @@ function updWeapons(dt) {
         break;
       }
       case 'orb': {
-        w.ang += dt * 3.2;
+        w.ang += dt * 3.6;
         const rad = s.r * P.areaM, orr = 11 * Math.sqrt(P.areaM);
         for (let i = 0; i < s.n; i++) {
           const a = w.ang + i / s.n * TAU, ox = P.x + Math.cos(a) * rad, oy = P.y + Math.sin(a) * rad;
-          forNear(ox, oy, orr + 60, e => { if (e.orbT > R.t) return; const dx = e.x - ox, dy = e.y - oy; if (dx * dx + dy * dy < (e.r + orr) ** 2) { e.orbT = R.t + .4; hitEnemy(e, s.dmg, e.x - P.x, e.y - P.y, 260, '#bfdbfe'); } });
+          forNear(ox, oy, orr + 60, e => { if (e.orbT > R.t) return; const dx = e.x - ox, dy = e.y - oy; if (dx * dx + dy * dy < (e.r + orr) ** 2) { e.orbT = R.t + (e.boss ? .2 : .3); hitEnemy(e, s.dmg, e.x - P.x, e.y - P.y, 200, '#bfdbfe'); } });
         }
         break;
       }
@@ -1845,11 +1848,11 @@ function pause() {
 }
 function resume() { if (mode !== 'pause') return; mode = 'play'; last = performance.now(); showScreen(null); }
 $('p-resume').onclick = resume;
-$('p-restart').onclick = () => { if (R.kind === 'level') startLevel(R.z, R.l); else startEndless(); };
+// recommencer ou quitter : on garde les cristaux ramassés (comme après une défaite)
+function bankRun() { S.cr += Math.floor(R.cr); R.cr = 0; if (R.kind === 'endless' && R.t > S.endless.best) S.endless.best = Math.floor(R.t); persist(); }
+$('p-restart').onclick = () => { bankRun(); if (R.kind === 'level') startLevel(R.z, R.l); else startEndless(); };
 $('p-quit').onclick = () => {
-  S.cr += Math.floor(R.cr);
-  if (R.kind === 'endless' && R.t > S.endless.best) S.endless.best = Math.floor(R.t);
-  persist(); const lv = R.kind === 'level'; if (lv) curZone = R.z; goMenu(lv ? 's-levels' : 's-title');
+  bankRun(); const lv = R.kind === 'level'; if (lv) curZone = R.z; goMenu(lv ? 's-levels' : 's-title');
 };
 $('pause-btn').onclick = pause;
 

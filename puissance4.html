@@ -303,7 +303,11 @@ function undo() {
 
 function newGame(swap = true) {
   gameId++; hideEnd();
-  if (swap && games > 0) human = 3 - human;
+  if (swap && games > 0) {
+    human = 3 - human;
+    // contre l'ordi, les scores suivent le joueur (Toi / Ordi), pas la couleur
+    if (settings.mode === 'ai') [scores[1], scores[2]] = [scores[2], scores[1]];
+  }
   games++;
   b = Array(42).fill(0); h = Array(7).fill(0); turn = 1; over = null; thinking = false; history = []; lastIdx = dropIdx = -1;
   render(); maybeAI();

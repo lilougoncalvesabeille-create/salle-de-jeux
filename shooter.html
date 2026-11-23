@@ -306,7 +306,7 @@
       </ul>
       <h3>🛸 Hangar : les vaisseaux</h3>
       <ul>
-        <li>Chaque vaisseau a ses statistiques, son style de tir et sa <b>capacité spéciale</b> (Espace, Maj ou le bouton rond en bas à droite) qui se recharge avec le temps.</li>
+        <li>Chaque vaisseau a ses statistiques, son style de tir et sa <b>capacité spéciale</b> (Espace, Maj ou le bouton rond en bas à gauche) qui se recharge avec le temps.</li>
         <li>Un nouveau vaisseau devient achetable à chaque monde terminé.</li>
       </ul>
       <h3>🔧 Atelier : les améliorations</h3>
@@ -317,7 +317,7 @@
       <h3>♾️ Mode sans fin</h3>
       <ul>
         <li>Des vagues infinies avec les ennemis de tous les mondes, et un boss toutes les 10 vagues.</li>
-        <li>La difficulté monte à chaque vague <b>et s'adapte à ta puissance</b> : plus ton vaisseau est amélioré, plus les ennemis sont résistants. Mais ils rapportent aussi plus de cristaux.</li>
+        <li>La difficulté monte à chaque vague : plus d'ennemis à la fois, des tirs plus rapides et plus nombreux. Elle <b>s'adapte aussi à ta puissance de combat</b> (dégâts, cadence, coque, drones, missiles… mais pas la vitesse, l'aimant, la chance, la durée des bonus ni le Prospecteur) : plus ton vaisseau est armé, plus les ennemis sont résistants. Mais ils rapportent aussi plus de cristaux.</li>
         <li>Ton record et tes <b>points de passage</b> (vague 11, 21, 31… débloqués en battant un boss) sont sauvegardés.</li>
       </ul>
       <h3>Bonus (à ramasser en vol)</h3>
@@ -354,6 +354,7 @@ function applyH(h) {
   const dh = h - H;
   H = h; cv.height = H * DPR; setArVars();
   for (const k in nebCache) delete nebCache[k];
+  for (const k in gradCache) delete gradCache[k];
   if (isFinite(dh) && typeof P !== 'undefined' && P) { P.y += dh; if (P.dr) for (const d of P.dr) d.y += dh; }
 }
 let fitT = 0;
@@ -387,8 +388,8 @@ const ENAMES = { drone: 'drones', rock: 'astéroïdes', dart: 'dards', jelly: 'm
 
 const SHIPS = [
   { id: 'faucon', name: 'Faucon', col: '#22d3ee', dark: '#0e5a6e', hp: 5, speed: 300, rate: 5.5, dmg: 1, pat: 'twin', sp: 'overdrive', spIc: '🔥', spN: 'Surcharge', spD: 'cadence ×2 et tir triple pendant 5 s', cd: 16, req: 0, cost: 0, desc: 'Polyvalent et fiable.', eng: [[-6, 20], [6, 20]] },
-  { id: 'lance', name: 'Lance', col: '#a3e635', dark: '#365314', hp: 4, speed: 320, rate: 9, dmg: .75, pat: 'needle', sp: 'laser', spIc: '☄️', spN: 'Rayon perforant', spD: 'un laser géant qui traverse tout pendant 2,5 s', cd: 15, req: 1, cost: 300, desc: 'Tir ultra-rapide et précis.', eng: [[0, 22]] },
-  { id: 'bastion', name: 'Bastion', col: '#fbbf24', dark: '#7c2d12', hp: 8, speed: 250, rate: 4.2, dmg: 1, pat: 'spread', sp: 'bubble', spIc: '🛡️', spN: 'Dôme', spD: 'invincible 5 s, le dôme détruit les tirs ennemis', cd: 18, req: 2, cost: 700, desc: 'Blindé, tir en éventail.', eng: [[-12, 18], [0, 16], [12, 18]] },
+  { id: 'lance', name: 'Lance', col: '#a3e635', dark: '#365314', hp: 4, speed: 320, rate: 10, dmg: .95, pat: 'needle', sp: 'laser', spIc: '☄️', spN: 'Rayon perforant', spD: 'un laser géant qui traverse tout pendant 2,5 s', cd: 15, req: 1, cost: 300, desc: 'Tir ultra-rapide et précis.', eng: [[0, 22]] },
+  { id: 'bastion', name: 'Bastion', col: '#fbbf24', dark: '#7c2d12', hp: 8, speed: 250, rate: 4.6, dmg: 1, pat: 'spread', sp: 'bubble', spIc: '🛡️', spN: 'Dôme', spD: 'invincible 4 s, le dôme détruit les tirs ennemis', cd: 20, req: 2, cost: 700, desc: 'Blindé, tir en éventail.', eng: [[-12, 18], [0, 16], [12, 18]] },
   { id: 'spectre', name: 'Spectre', col: '#f472b6', dark: '#831843', hp: 4, speed: 380, rate: 6.5, dmg: 1.05, pat: 'twin', sp: 'blink', spIc: '🌀', spN: 'Distorsion', spD: 'ralentit le temps 2,5 s et efface les tirs proches', cd: 10, req: 3, cost: 1200, desc: 'Le plus rapide et le plus agile.', eng: [[-5, 20], [5, 20]] },
   { id: 'nova', name: 'Nova', col: '#c084fc', dark: '#581c87', hp: 6, speed: 300, rate: 5.5, dmg: 1.15, pat: 'nova', sp: 'swarm', spIc: '🎆', spN: 'Essaim', spD: 'lâche 14 missiles à tête chercheuse', cd: 13, req: 4, cost: 2000, desc: 'Tirs doubles + mini-missiles automatiques.', eng: [[-8, 18], [8, 18]] },
 ];
@@ -397,11 +398,11 @@ const UPS = [
   { id: 'dmg', ic: '💥', n: 'Canons renforcés', d: l => `+${l * 12} % de dégâts`, max: 10, base: 40, g: 1.32, req: 0 },
   { id: 'rate', ic: '🔫', n: 'Cadence de tir', d: l => `+${l * 8} % de tirs par seconde`, max: 10, base: 40, g: 1.32, req: 0 },
   { id: 'hull', ic: '🧱', n: 'Blindage', d: l => `+${l} PV de coque`, max: 6, base: 60, g: 1.5, req: 0 },
-  { id: 'speed', ic: '💨', n: 'Propulseurs', d: l => `+${l * 6} % de vitesse`, max: 5, base: 35, g: 1.4, req: 0 },
-  { id: 'magnet', ic: '🧲', n: 'Aimant', d: l => `rayon d'aspiration des cristaux +${l * 35} %`, max: 4, base: 60, g: 1.5, req: 1 },
-  { id: 'luck', ic: '🍀', n: 'Chance', d: l => `+${l * 15} % de bonus lâchés`, max: 5, base: 70, g: 1.45, req: 1 },
-  { id: 'dur', ic: '⏳', n: 'Bonus durables', d: l => `bonus actifs +${l * 15} % de durée`, max: 5, base: 60, g: 1.45, req: 1 },
-  { id: 'cr', ic: '💎', n: 'Prospecteur', d: l => `+${l * 10} % de cristaux`, max: 5, base: 90, g: 1.5, req: 1 },
+  { id: 'speed', ic: '💨', n: 'Propulseurs', d: l => `+${l * 6} % de vitesse`, max: 5, base: 35, g: 1.4, req: 0, nc: 1 },
+  { id: 'magnet', ic: '🧲', n: 'Aimant', d: l => `rayon d'aspiration des cristaux +${l * 35} %`, max: 4, base: 60, g: 1.5, req: 1, nc: 1 },
+  { id: 'luck', ic: '🍀', n: 'Chance', d: l => `+${l * 15} % de bonus lâchés`, max: 5, base: 70, g: 1.45, req: 1, nc: 1 },
+  { id: 'dur', ic: '⏳', n: 'Bonus durables', d: l => `bonus actifs +${l * 15} % de durée`, max: 5, base: 60, g: 1.45, req: 1, nc: 1 },
+  { id: 'cr', ic: '💎', n: 'Prospecteur', d: l => `+${l * 10} % de cristaux`, max: 5, base: 90, g: 1.5, req: 1, nc: 1 },
   { id: 'cd', ic: '⚡', n: 'Recharge spéciale', d: l => `capacité spéciale rechargée ${l * 8} % plus vite`, max: 5, base: 110, g: 1.45, req: 2 },
   { id: 'wing', ic: '🛰️', n: 'Drones d\'escorte', d: l => `2 drones qui tirent avec toi (puissance ${l})`, max: 3, base: 250, g: 1.8, req: 2, pw: 3 },
   { id: 'missile', ic: '🚀', n: 'Lance-missiles', d: l => `2 missiles chercheurs toutes les ${(2.6 - .5 * l).toFixed(1).replace('.', ',')} s`, max: 3, base: 280, g: 1.8, req: 2, pw: 3 },
@@ -448,9 +449,11 @@ const levelUnlocked = (w, l) => worldUnlocked(w) && (l === 1 || starsOf(w, l - 1
 const worldStars = w => [1, 2, 3, 4, 5].reduce((a, l) => a + starsOf(w, l), 0);
 const totalStars = () => [1, 2, 3, 4].reduce((a, w) => a + worldStars(w), 0);
 const curShip = () => SHIPS.find(s => s.id === S.ship) || SHIPS[0];
+// Puissance de combat (sert au mode sans fin) : les améliorations de confort (nc : vitesse, aimant,
+// chance, durée des bonus, cristaux) ne comptent pas, pour ne pas rendre les ennemis plus résistants.
 function powerScore() {
   let p = 0;
-  for (const u of UPS) p += upL(u.id) * (u.pw || 1);
+  for (const u of UPS) if (!u.nc) p += upL(u.id) * (u.pw || 1);
   return p + SHIPS.findIndex(s => s.id === S.ship) * 3;
 }
 function playerStats() {
@@ -871,7 +874,7 @@ const ATK = {
     if (a.t < .95) { b.lock = true; b.warn = a.t; if (a.t < .6) b.x += (P.x - b.x) * Math.min(1, a.dt * 3); return false; }
     b.warn = 0;
     if (a.ph === undefined) a.ph = 0;
-    if (a.ph === 0) { b.y += 700 * a.dt; if (b.y >= 560) { b.y = 560; a.ph = 1; a.w = .3; shake = 12; if (b.enr) ring(b.x, b.y + 60, 12, 150, 0, { col: '#93c5fd' }); } }
+    if (a.ph === 0) { b.y += 700 * a.dt; if (b.y >= H - 160) { b.y = H - 160; a.ph = 1; a.w = .3; shake = 12; if (b.enr) ring(b.x, b.y + 60, 12, 150, 0, { col: '#93c5fd' }); } }
     else if (a.ph === 1) { a.w -= a.dt; if (a.w <= 0) a.ph = 2; }
     else { b.y -= 320 * a.dt; if (b.y <= 130) { b.y = 130; b.lock = false; return true; } }
     return false;
@@ -922,13 +925,13 @@ const ATK = {
     return a.t > 3.7;
   },
   hole(b, a) {
-    if (a.k === 0) { a.k = 1; holes.push({ x: rnd(100, 380), y: rnd(270, 440), t: 0, dur: 4.5, e: .4 }); }
+    if (a.k === 0) { a.k = 1; holes.push({ x: rnd(100, 380), y: rnd(H * .375, H * .61), t: 0, dur: 4.5, e: .4 }); }
     if (a.t > 1 && ev(a, 1.1)) shoot(b.x, b.y, aimAng(b), 170, { col: '#f0abfc' });
     return a.t > 4.8;
   },
   sweep(b, a) {
     if (a.k === 0) { a.k = 1; const dir = Math.random() < .5 ? 1 : -1; const total = Math.PI * .7;
-      beams.push({ own: b, ox: 0, oy: 10, x: b.x, y: b.y + 10, ang: dir > 0 ? Math.PI * .15 : Math.PI * .85, angV: dir * total / 2.2, len: 390, w: 20, warn: 1, dur: 2.2, t: 0, col: '#e879f9', sweep: dir * total }); b.lock = true; }
+      beams.push({ own: b, ox: 0, oy: 10, x: b.x, y: b.y + 10, ang: dir > 0 ? Math.PI * .15 : Math.PI * .85, angV: dir * total / 2.2, len: Math.round(390 * H / 720), w: 20, warn: 1, dur: 2.2, t: 0, col: '#e879f9', sweep: dir * total }); b.lock = true; }
     if (a.t > 3.2) { b.lock = false; return true; }
     return false;
   },
@@ -1019,7 +1022,7 @@ function firePattern() {
   P.shots++;
   switch (st.ship.pat) {
     case 'needle': pbul(P.x, P.y - 22, 0, dmg, { sp: 980, r: 3 }); break;
-    case 'spread': pbul(P.x, P.y - 18, 0, dmg); pbul(P.x - 12, P.y - 8, -.17, dmg); pbul(P.x + 12, P.y - 8, .17, dmg); break;
+    case 'spread': pbul(P.x, P.y - 18, 0, dmg); pbul(P.x - 12, P.y - 8, -.11, dmg); pbul(P.x + 12, P.y - 8, .11, dmg); break;
     case 'nova':
       pbul(P.x - 8, P.y - 14, 0, dmg); pbul(P.x + 8, P.y - 14, 0, dmg);
       if (P.shots % 4 === 0) missile(P.x, P.y - 10, -Math.PI / 2 + rnd(-.6, .6), dmg * 1.6);
@@ -1035,7 +1038,7 @@ function useSpecial() {
   switch (sh.sp) {
     case 'overdrive': P.over = 5; break;
     case 'laser': P.laser = 2.5; shake = 6; break;
-    case 'bubble': P.bubble = 5; break;
+    case 'bubble': P.bubble = 4; break;
     case 'blink':
       slow = 2.5; P.inv = Math.max(P.inv, 1.4);
       for (const b of eb) if (Math.hypot(b.x - P.x, b.y - P.y) < 150) { b.dead = 1; spark(b.x, b.y, '#f9a8d4'); }
@@ -1138,13 +1141,17 @@ function startEndless(from) {
   bgWorld = Math.floor((from - 1) / 10) % 4; beginRun();
   banner('Mode sans fin', `Départ : vague ${from}`, 2.4);
 }
+// mode sans fin : PV +7,5 % par vague, jusqu'à 14 groupes d'ennemis par vague, 0,8 s mini entre deux groupes
+const EHP = .075, EGMAX = 14, EGAP = .8;
 function setEndlessDiff(n) {
   const p = powerScore();
   run.pw = p;
-  run.hpM = (1 + .13 * (n - 1)) * (1 + .022 * p);
-  run.bs = Math.min(1.75, 1 + .018 * n);
-  run.fr = Math.min(2.3, 1 + .03 * n + .004 * p);
-  run.crMul = (1 + .06 * n) * (1 + .01 * p);
+  // PV : montée modérée (boss autour de 40-90 s même tard) ; le défi vient surtout des tirs et du nombre d'ennemis
+  run.hpM = (1 + EHP * (n - 1)) * (1 + .03 * p);
+  // vitesse des tirs et cadence : montée linéaire, puis plafond « souple » (logarithmique) qui ne bloque jamais
+  run.bs = n <= 40 ? 1 + .018 * n : 1.72 + .35 * Math.log(1 + (n - 40) / 15);
+  run.fr = (n <= 30 ? 1 + .03 * n : 1.9 + .6 * Math.log(1 + (n - 30) / 12)) + .004 * p;
+  run.crMul = (1 + .06 * n) * (1 + .012 * p);
 }
 function endlessPool(n) {
   const tiers = Math.min(4, 1 + Math.floor((n - 1) / 3));
@@ -1169,11 +1176,13 @@ function nextWave() {
     bgWorld = Math.floor((run.wave - 1) / 10) % 4;
     if (run.wave % 10 === 0) {
       const id = BOSS_ORDER[(run.wave / 10 - 1) % 4];
-      spawnBoss(id, run.hpM * 1.3); run.state = 'boss';
+      spawnBoss(id, run.hpM * 1.3 * Math.min(1, 55 / run.wave)); run.state = 'boss'; // PV des boss plafonnés après la vague 55 : le défi passe par les attaques
+      if (run.wave >= 50) run.boss.enr = true; // tard dans le mode sans fin, les boss arrivent déjà énervés
       banner(`⚠ Vague ${run.wave} : BOSS ⚠`, BOSSES[id].n, 2.6); flashT = .3; flashCol = '#ef4444';
     } else {
-      const groups = Math.min(9, 3 + Math.floor(run.wave / 3));
-      run.events = genWave(endlessPool(run.wave), groups, Math.random, Math.max(1.1, 2.3 - run.wave * .03)); run.et = 0; run.state = 'wave';
+      // plus d'ennemis à la fois au fil des vagues (groupes plus nombreux et plus rapprochés)
+      const groups = Math.min(EGMAX, 3 + Math.floor(run.wave / 3));
+      run.events = genWave(endlessPool(run.wave), groups, Math.random, Math.max(EGAP, 2.3 - run.wave * .03)); run.et = 0; run.state = 'wave';
       banner(`Vague ${run.wave}`, `Menace ×${run.hpM.toFixed(1).replace('.', ',')}`, 1.6);
     }
   }
@@ -1447,7 +1456,7 @@ function drawEnemy(e) {
     case 'boss': return drawBoss(e);
     case 'rock': case 'pebble': drawSprite(SPR[e.type], e.x, e.y, e.rot, f); break;
     case 'dart':
-      if (e.st === 1) { ctx.strokeStyle = `rgba(251,146,60,${.25 + .25 * Math.sin(e.t * 30)})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + Math.cos(e.ang) * 500, e.y + Math.sin(e.ang) * 500); ctx.stroke(); ctx.setLineDash([]); }
+      if (e.st === 1) { ctx.strokeStyle = `rgba(251,146,60,${.25 + .25 * Math.sin(e.t * 30)})`; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + Math.cos(e.ang) * H, e.y + Math.sin(e.ang) * H); ctx.stroke(); ctx.setLineDash([]); }
       drawSprite(SPR.dart, e.x, e.y, e.ang, f); break;
     case 'jelly': drawSprite(SPR.jelly, e.x, e.y + 4, 0, f, 1 + (e.pulse > 0 ? e.pulse * .5 : 0) + Math.sin(e.t * 3) * .03); break;
     case 'spore':
@@ -1571,13 +1580,15 @@ function drawHUD() {
 function drawHUDAt(W, H) {
   ctx.save();
   // coque
-  const mh = P.st.maxHp, bw = Math.min(160, mh * 22), sw = bw / mh;
+  // largeur limitée pour ne jamais chevaucher l'étiquette du niveau au centre (HUD agrandi sur téléphone)
+  const mh = P.st.maxHp, bw = Math.min(160, mh * 22, W / 2 - 90), sw = bw / mh;
   ctx.fillStyle = 'rgba(0,0,0,.45)'; roundRect(10, 10, bw + 8, 20, 6); ctx.fill();
   const c = P.hp / mh > .5 ? '#4ade80' : P.hp / mh > .25 ? '#facc15' : '#ef4444';
   for (let i = 0; i < mh; i++) { ctx.fillStyle = i < P.hp ? c : 'rgba(255,255,255,.1)'; roundRect(14 + i * sw, 14, sw - 3, 12, 3); ctx.fill(); }
   ctx.textAlign = 'left';
-  if (P.shield) { ctx.fillStyle = '#60a5fa'; ctx.font = '700 13px system-ui'; ctx.fillText('⛨'.repeat(P.shield), 14, 46); }
-  if (P.revive) { ctx.font = '12px system-ui'; ctx.fillText('❤️‍🔥', 22 + bw, 25); }
+  let x2 = 14;
+  if (P.shield) { ctx.fillStyle = '#60a5fa'; ctx.font = '700 13px system-ui'; const t = '⛨'.repeat(P.shield); ctx.fillText(t, 14, 46); x2 += ctx.measureText(t).width + 6; }
+  if (P.revive) { ctx.font = '12px system-ui'; ctx.fillText('❤️‍🔥', x2, 46); }
   // cristaux et score
   ctx.textAlign = 'right'; ctx.font = '800 16px system-ui'; ctx.fillStyle = '#67e8f9'; ctx.fillText(`💎 ${fmt(run.cr)}`, W - 52, 27);
   ctx.font = '600 12px system-ui'; ctx.fillStyle = 'rgba(230,237,243,.7)'; ctx.fillText(fmt(run.score), W - 52, 44);
@@ -1810,8 +1821,8 @@ function renderShop() {
 }
 function renderEndless() {
   $('e-best').textContent = S.endless.best;
-  const p = powerScore(), hp = 1 + .022 * p;
-  $('e-info').innerHTML = `Ta puissance actuelle : <b>${p}</b> (améliorations + vaisseau).<br>Les ennemis s'adaptent : PV <b>×${hp.toFixed(2).replace('.', ',')}</b> dès la vague 1, puis +13 % à chaque vague. Les cristaux gagnés augmentent aussi avec la vague et ta puissance.<br>Ennemis de tous les mondes, boss toutes les 10 vagues.`;
+  const p = powerScore(), hp = 1 + .03 * p;
+  $('e-info').innerHTML = `Ta puissance de combat : <b>${p}</b> (améliorations de combat + vaisseau ; vitesse, aimant, chance, durée des bonus et Prospecteur ne comptent pas).<br>Les ennemis s'adaptent : PV <b>×${hp.toFixed(2).replace('.', ',')}</b> dès la vague 1, puis +${String(EHP * 100).replace('.', ',')} % à chaque vague. Au fil des vagues, ils sont aussi plus nombreux et tirent plus vite. Les cristaux gagnés augmentent avec la vague et ta puissance.<br>Ennemis de tous les mondes, boss toutes les 10 vagues.`;
   const box = $('e-cps'); box.innerHTML = '';
   for (const cp of S.endless.cps) {
     const b = document.createElement('button'); b.className = 'cp'; b.textContent = `▶ Vague ${cp}`;
@@ -1827,7 +1838,13 @@ function pause() {
 }
 function resume() { if (mode !== 'pause') return; mode = 'play'; last = performance.now(); showScreen(null); }
 $('p-resume').onclick = resume;
-$('p-restart').onclick = () => { if (run.kind === 'level') startLevel(run.w, run.l); else startEndless(run.start); };
+// Recommencer garde les cristaux déjà ramassés, comme Abandonner (sinon ils étaient perdus)
+$('p-restart').onclick = () => {
+  S.cr += run.cr;
+  if (run.kind === 'endless') S.endless.best = Math.max(S.endless.best, run.wave - 1);
+  persist();
+  if (run.kind === 'level') startLevel(run.w, run.l); else startEndless(run.start);
+};
 $('p-quit').onclick = () => {
   S.cr += run.cr;
   if (run.kind === 'endless') S.endless.best = Math.max(S.endless.best, run.wave - 1);

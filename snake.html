@@ -264,7 +264,7 @@ function step() {
     addScore(1, head);
     if (snake.length === N*N) return gameOver(true);
     placeFood();
-    speed = Math.max(55, speed - 3);
+    speed = Math.max(60, speed - 2);
     if (!bonus && Math.random() < BONUS_CHANCE) spawnBonus();
     restartTimer();
   } else snake.pop();
@@ -273,6 +273,8 @@ function step() {
   else if (bonus && --bonus.life <= 0) bonus = null;
 
   for (const k in effects) {
+    // le fantôme ne s'arrête pas tant que le serpent est encore emmêlé sur lui-même (sinon mort injuste)
+    if (k === 'ghost' && effects[k] === 1 && new Set(snake.map(s => s[0] * N + s[1])).size < snake.length) continue;
     if (effects[k] > 0 && --effects[k] === 0 && k === 'slow') restartTimer();
   }
   popups = popups.filter(p => --p.life > 0);
@@ -425,19 +427,29 @@ document.addEventListener('keydown', e => {
   if (k) { e.preventDefault(); if (running && !paused) setDir(k); }
 });
 
-document.querySelectorAll('.pad button').forEach(b => b.onclick = () => {
+// Flèches tactiles : réagissent dès l'appui (pas au relâchement) pour ne pas rater un virage.
+document.querySelectorAll('.pad button').forEach(b => b.addEventListener('pointerdown', e => {
+  e.preventDefault();
   const d = b.dataset.d;
   if (d === 'pause') { if (!running) start(); else togglePause(); }
   else if (running && !paused) setDir(d);
-});
+}));
 
-let tx, ty;
+// Glisser : le virage est pris pendant le mouvement du doigt (on peut enchaîner sans lever le doigt).
+let tx = null, ty = null;
 canvas.addEventListener('touchstart', e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
-canvas.addEventListener('touchend', e => {
-  const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
-  if (Math.max(Math.abs(dx), Math.abs(dy)) < 20 || !running || paused) return;
+canvas.addEventListener('touchmove', e => {
+  if (tx === null || !running || paused) return;
+  const t = e.touches[0], dx = t.clientX - tx, dy = t.clientY - ty;
+  if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
   setDir(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
-});
+  tx = t.clientX; ty = t.clientY;
+}, { passive: true });
+canvas.addEventListener('touchend', () => { tx = ty = null; });
+
+// Appli quittée ou écran éteint : pause automatique (sinon le serpent fonce dans un mur sans toi).
+document.addEventListener('visibilitychange', () => { if (document.hidden && running && !paused) togglePause(); });
+window.addEventListener('blur', () => { if (running && !paused) togglePause(); });
 
 reset(); draw();
 </script>

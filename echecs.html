@@ -436,6 +436,7 @@
         <li><b>Elo en direct</b> : après chaque coup, l'ordinateur évalue la position et affiche ce que tu gagnerais (ou perdrais) si la partie s'arrêtait maintenant.</li>
         <li>Chacun de tes coups est noté : <b>Excellent</b>, <b>Bon</b>, <b>Imprécision</b>, <b>Erreur</b> ou <b>Gaffe</b>, et ta <b>précision</b> de la partie est calculée.</li>
         <li>🏳️ <b>Abandonner</b>, ou lancer une nouvelle partie pendant une partie en cours contre l'ordinateur, compte comme une <b>défaite</b>.</li>
+        <li>↶ <b>Annuler un coup</b> pendant une partie contre l'ordinateur la rend <b>non classée</b> : ton Elo ne changera pas.</li>
         <li>Si tu changes de niveau en pleine partie, l'Elo est calculé contre le niveau le plus faible utilisé. Les parties à deux ne changent pas l'Elo.</li>
         <li>📈 <b>Profil</b> : ton record, tes résultats par niveau et la courbe de ton Elo.</li>
       </ul>
@@ -734,13 +735,16 @@ function think(level) {
   deadline = Date.now() + (level === 3 ? 2000 : 3500);
   nodes = 0; aborted = false;
   order(moves);
+  // coups qui répéteraient une position pour la 3e fois = nulle immédiate (l'ordi l'évite s'il gagne, la cherche s'il perd)
+  const drawRep = new Set();
+  for (const m of moves) { makeMove(m); if (repCount(posKey()) >= 2) drawRep.add(m); unmakeMove(); }
   let best = moves[0];
   for (let d = 1; d <= maxDepth; d++) {
     moves.sort((a, b) => (b === best) - (a === best));   // le meilleur coup précédent d'abord
     let alpha = -INF, bestThis = null, bestScore = -INF;
     for (const m of moves) {
       makeMove(m);
-      const sc = -negamax(d - 1, -INF, -alpha, 1);
+      const sc = drawRep.has(m) ? 0 : -negamax(d - 1, -INF, -alpha, 1);
       unmakeMove();
       if (aborted) break;
       if (sc > bestScore) { bestScore = sc; bestThis = m; }
@@ -986,7 +990,8 @@ function renderElo() {
   if (game.scored) {
     on.style.display = 'none';
     const r = game.eloRes;
-    note.innerHTML = game.afterScore || !r ? 'Partie déjà comptée au classement.'
+    note.innerHTML = game.unrated ? 'Partie non classée (coup annulé) : ton Elo ne changera pas.'
+      : game.afterScore || !r ? 'Partie déjà comptée au classement.'
       : `Partie comptée : ${r.before} → <b>${r.after}</b> <span class="d ${dCls(r.d)}">(${fmtD(r.d)})</span>`;
     return;
   }
@@ -1175,7 +1180,11 @@ $('promo-choices').addEventListener('click', e => {
   play(m);
 });
 
-const posKey = () => G.b.map(p => p || '.').join('') + G.turn + G.castle + G.ep;
+// La case « en passant » ne compte pour la répétition que si une prise en passant est vraiment possible.
+const posKey = () => G.b.map(p => p || '.').join('') + G.turn + G.castle
+  + (G.ep >= 0 && legalMoves(G.turn).some(m => m.flag === 'ep') ? G.ep : -1);
+let startKey = '';
+const repCount = key => record.reduce((n, r) => n + (r.key === key), 0) + (key === startKey);
 
 function play(m) {
   const s = san(m, legal);
@@ -1209,10 +1218,13 @@ function checkEnd() {
     if (inCheck(G.turn)) { winner = other(G.turn); reason = 'Échec et mat'; }
     else reason = `Pat : les ${side} n'ont plus aucun coup possible`;
   } else if (G.half >= 100) reason = '50 coups sans prise ni mouvement de pion';
-  else if (record.filter(r => r.key === record[record.length - 1].key).length >= 3) reason = 'La même position est apparue 3 fois';
+  else if (repCount(record[record.length - 1].key) >= 3) reason = 'La même position est apparue 3 fois';
   else {
     const rest = G.b.filter(p => p && typeOf(p) !== 'k');
-    if (rest.length === 0 || (rest.length === 1 && 'bn'.includes(typeOf(rest[0]))))
+    // fous uniquement, tous sur des cases de la même couleur (ex. roi + fou contre roi + fou de même couleur)
+    const bishopSq = G.b.map((p, sq) => p && typeOf(p) === 'b' ? ((sq >> 3) + (sq & 7)) % 2 : -1).filter(c => c >= 0);
+    const sameBishops = rest.length > 0 && bishopSq.length === rest.length && bishopSq.every(c => c === bishopSq[0]);
+    if (rest.length === 0 || (rest.length === 1 && 'bn'.includes(typeOf(rest[0]))) || sameBishops)
       reason = 'Il ne reste pas assez de pièces pour mater';
   }
   if (!reason) return;
@@ -1236,7 +1248,10 @@ function showEnd() {
   $('end-stats').textContent = `Partie en ${n} coup${n > 1 ? 's' : ''} · ${mode === 'ai' ? 'contre l\'ordinateur' : 'à deux joueurs'}`;
   const r = game.eloRes, endElo = $('end-elo');
   if (mode !== 'ai') endElo.innerHTML = '';
-  else if (!r || game.afterScore) {
+  else if (game.unrated) {
+    const acc = gameAccuracy();
+    endElo.innerHTML = `<span class="sub">Partie non classée (coup annulé) : ton Elo ne change pas${acc !== null ? ` · 🎯 Précision : ${acc} %` : ''}</span>`;
+  } else if (!r || game.afterScore) {
     const acc = gameAccuracy();
     endElo.innerHTML = `<span class="sub">Partie déjà comptée au classement${acc !== null ? ` · 🎯 Précision : ${acc} %` : ''}</span>`;
   } else {
@@ -1322,13 +1337,14 @@ function newGame() {
   thinking = false;
   loadStart();
   startBoard = G.b.slice();
+  record = []; startKey = posKey();
   viewPly = null;
   hideEnd();
   mode = settings.mode;
   humanColor = settings.color === 'r' ? (Math.random() < .5 ? 'w' : 'b') : settings.color;
   flipped = mode === 'ai' && humanColor === 'b';
   selected = null; selMoves = []; preview = null; over = null; record = []; lastMove = null;
-  game = { minLevel: settings.level, scored: false, eloRes: null, afterScore: false };
+  game = { minLevel: settings.level, scored: false, eloRes: null, afterScore: false, unrated: false };
   pendingAn = pendingEv = null;
   legal = legalMoves('w');
   $('hint').textContent = '';
@@ -1549,7 +1565,19 @@ $('elo-reset').onclick = () => askConfirm('Réinitialiser le classement ?',
   'Ton Elo repart à <b>800</b> et tout ton historique (record, résultats, courbe) est effacé. Impossible d\'annuler.',
   'Réinitialiser', () => { ELO = eloDefaults(); saveElo(); liveAnim.target = null; openProfile(); render(); });
 addEventListener('resize', () => { if (isOpen('elo-modal')) drawEloChart(); });
-$('undo').onclick = undo;
+// Annuler pendant une partie classée : possible, mais la partie devient non classée (sinon on pourrait effacer ses gaffes).
+$('undo').onclick = () => {
+  if (thinking || !record.length) return;
+  if (!ratedInProgress()) return undo();
+  askConfirm('Annuler le coup ?',
+    'Annuler un coup rend cette partie <b>non classée</b> : ton Elo ne changera pas, quel que soit le résultat.',
+    '↶ Annuler quand même', () => {
+      if (thinking || !record.length) return;
+      if (ratedInProgress()) { game.scored = true; game.unrated = true; game.eloRes = null; pendingAn = pendingEv = null; }
+      undo();
+      $('hint').textContent = 'Partie non classée : tu as annulé un coup.';
+    });
+};
 $('flip').onclick = () => {
   flipped = !flipped;
   const b = $('flip'); b.classList.remove('spin'); void b.offsetWidth; b.classList.add('spin');
