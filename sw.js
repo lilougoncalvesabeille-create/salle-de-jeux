@@ -1,11 +1,12 @@
 // Service worker : garde tous les jeux en cache pour jouer hors connexion.
 // VERSION est changée automatiquement par deploy.ps1 à chaque mise en ligne.
-const VERSION = 'salle-de-jeux-20261122-232243';
+const VERSION = 'salle-de-jeux-20261123-060054';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest',
   'mobile.css', 'common.js', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png',
   'snake.html', 'echecs.html', 'shooter.html', 'casse-briques.html', 'survivant.html',
-  'defense.html', 'pong.html', 'morpion.html', 'puissance4.html', 'morpion-extreme.html', 'clicker.html'
+  'defense.html', 'pong.html', 'morpion.html', 'puissance4.html', 'morpion-extreme.html', 'clicker.html',
+  'runner.html', 'gemmes.html', 'golf.html', 'course.html', 'donjon.html'
 ];
 
 // Télécharge (sans passer par le cache HTTP du navigateur) tous les fichiers qui manquent dans le cache.
