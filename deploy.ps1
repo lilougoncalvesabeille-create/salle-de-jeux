@@ -15,7 +15,7 @@ $swText = [IO.File]::ReadAllText($sw) -replace "const VERSION = '[^']*';", "cons
 git add -A
 git diff --cached --quiet
 if ($LASTEXITCODE -ne 0) {
-  git commit -m $Message --quiet
+  git commit -m $Message -m 'Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>' --quiet
   if ($LASTEXITCODE -ne 0) { throw 'Le commit a échoué.' }
 }
 
